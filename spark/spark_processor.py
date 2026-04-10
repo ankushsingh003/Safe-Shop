@@ -1,7 +1,9 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, window, count, current_timestamp
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType, TimestampType
+from pyspark.sql.functions import from_json, col, window, count, expr, udf
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType, TimestampType, BooleanType, FloatType
 import os
+import requests
+import json
 
 # Define Schema based on producer's json schema
 schema = StructType([
@@ -17,24 +19,46 @@ schema = StructType([
     StructField("timestamp", StringType(), True)
 ])
 
+# UDF for Fraud Detection (Calling FastAPI)
+def detect_fraud(amount, orders_per_user_1m):
+    url = os.environ.get("ML_SERVER_URL", "http://localhost:8000") + "/predict"
+    try:
+        response = requests.post(
+            url, 
+            json={"order_amount": float(amount), "orders_per_user_1m": float(orders_per_user_1m)},
+            timeout=1
+        )
+        if response.status_code == 200:
+            res = response.json()
+            return res.get("is_fraud", False), res.get("fraud_score", 0.0)
+    except Exception as e:
+        print(f"ML API Error: {e}")
+    # Default fallback
+    return False, 0.0
+
+# Register the UDF
+# Returning a struct with (is_fraud, fraud_score)
+fraud_udf_schema = StructType([
+    StructField("is_fraud", BooleanType(), False),
+    StructField("fraud_score", FloatType(), False)
+])
+fraud_check_udf = udf(detect_fraud, fraud_check_udf_schema)
+
 def main():
-    # Configuration from environment or defaults
+    # Configuration
     kafka_bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
     postgres_db = os.environ.get("POSTGRES_DB", "ecommerce_orders")
     postgres_user = os.environ.get("POSTGRES_USER", "postgres")
     postgres_password = os.environ.get("POSTGRES_PASSWORD", "postgres")
-    postgres_url = f"jdbc:postgresql://localhost:5432/{postgres_db}" # If running outside docker
+    postgres_url = f"jdbc:postgresql://localhost:5432/{postgres_db}"
     
-    # Initialize Spark Session
-    # Including both Kafka and Postgres JDBC packages
+    # Initialize Spark
     spark = SparkSession.builder \
         .appName("RealTimeOrderProcessing") \
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.2") \
         .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-
-    print(f"Reading from Kafka topic 'orders' at {kafka_bootstrap_servers}...")
 
     # 1. Read from Kafka
     raw_df = spark \
@@ -45,15 +69,14 @@ def main():
         .option("startingOffsets", "latest") \
         .load()
 
-    # 2. Parse JSON and Cast Types, assign Watermark for stateful processing
+    # 2. Parse JSON
     parsed_df = raw_df.selectExpr("CAST(value AS STRING)") \
         .select(from_json(col("value"), schema).alias("data")) \
         .select("data.*") \
         .withColumn("timestamp", col("timestamp").cast(TimestampType())) \
         .withWatermark("timestamp", "1 minute")
 
-    # 3. Feature Engineering: Windowed Aggregations (orders_per_user_last_minute)
-    # This identifies bursts of orders, which is a fraud indicator
+    # 3. Feature Engineering: Windowed Aggregations
     orders_per_user = parsed_df \
         .groupBy(
             window(col("timestamp"), "1 minute", "30 seconds"),
@@ -61,37 +84,35 @@ def main():
         ).count() \
         .withColumnRenamed("count", "orders_per_user_1m")
 
-    # Join back to the main stream to enrich with the feature
-    # Note: Stream-Stream join requires watermarking on both sides
+    # Join back to the main stream
     enriched_df = parsed_df.join(
         orders_per_user,
-        expr="""
+        expr("""
             parsed_df.user_id = orders_per_user.user_id AND
             parsed_df.timestamp >= window.start AND
             parsed_df.timestamp < window.end
-        """,
+        """),
         "left"
     ).select(
         parsed_df["*"],
         col("orders_per_user_1m")
     ).fillna(0)
 
-    # 4. Filter for high-risk orders (Placeholder logic)
-    # Amount > 500 OR more than 5 orders in a minute
-    high_risk_orders = enriched_df.filter(
-        (col("amount") > 500) | (col("orders_per_user_1m") > 5)
-    )
+    # 4. ML Inference: Detect Fraud
+    predictions_df = enriched_df.withColumn("fraud_res", fraud_check_udf(col("amount"), col("orders_per_user_1m"))) \
+        .select("*", "fraud_res.is_fraud", "fraud_res.fraud_score") \
+        .drop("fraud_res")
 
     # 5. Output sinks
-    # a) Console sink for monitoring
-    console_query = high_risk_orders \
+    # a) Console sink
+    console_query = predictions_df \
         .writeStream \
         .outputMode("append") \
         .format("console") \
         .option("truncate", "false") \
         .start()
 
-    # b) PostgreSQL sink (using foreachBatch as standard Postgres sink isn't streaming native)
+    # b) PostgreSQL sink
     def write_to_postgres(batch_df, batch_id):
         batch_df.write \
             .format("jdbc") \
@@ -103,8 +124,8 @@ def main():
             .mode("append") \
             .save()
 
-    print("Starting PostgreSQL Sink...")
-    postgres_query = high_risk_orders \
+    print("Starting Main Pipeline...")
+    postgres_query = predictions_df \
         .writeStream \
         .foreachBatch(write_to_postgres) \
         .option("checkpointLocation", "storage/checkpoints/spark_orders") \
@@ -114,4 +135,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
