@@ -88,10 +88,12 @@ def main():
     postgres_password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     postgres_url = f"jdbc:postgresql://localhost:5432/{postgres_db}"
     
-    # Initialize Spark
+    # Initialize Spark with Delta Lake and Postgres support
     spark = SparkSession.builder \
         .appName("RealTimeOrderProcessing") \
-        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.2") \
+        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.2,io.delta:delta-spark_2.12:3.1.0") \
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
         .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
@@ -130,12 +132,21 @@ def main():
             .mode("append") \
             .save()
 
-    print("Starting Main Pipeline...")
+    print("Starting PostgreSQL Sink...")
     postgres_query = predictions_df \
         .writeStream \
         .foreachBatch(write_to_postgres) \
         .option("checkpointLocation", "storage/checkpoints/spark_orders") \
         .start()
+
+    # c) Delta Lake sink (Raw Data Archive)
+    print("Starting Delta Lake Sink...")
+    delta_query = predictions_df \
+        .writeStream \
+        .format("delta") \
+        .outputMode("append") \
+        .option("checkpointLocation", "storage/checkpoints/delta_orders") \
+        .start("storage/delta/processed_orders")
 
     spark.streams.awaitAnyTermination()
 
