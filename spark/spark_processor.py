@@ -37,12 +37,48 @@ def detect_fraud(amount, orders_per_user_1m):
     return False, 0.0
 
 # Register the UDF
-# Returning a struct with (is_fraud, fraud_score)
 fraud_udf_schema = StructType([
     StructField("is_fraud", BooleanType(), False),
     StructField("fraud_score", FloatType(), False)
 ])
 fraud_check_udf = udf(detect_fraud, fraud_check_udf_schema)
+
+def transform_orders(raw_df, schema):
+    """Core transformation logic for unit testing"""
+    # Parse JSON
+    parsed_df = raw_df.select(from_json(col("value"), schema).alias("data")) \
+        .select("data.*") \
+        .withColumn("timestamp", col("timestamp").cast(TimestampType())) \
+        .withWatermark("timestamp", "1 minute")
+
+    # Feature Engineering: Windowed Aggregations
+    orders_per_user = parsed_df \
+        .groupBy(
+            window(col("timestamp"), "1 minute", "30 seconds"),
+            col("user_id")
+        ).count() \
+        .withColumnRenamed("count", "orders_per_user_1m")
+
+    # Join back to the main stream
+    enriched_df = parsed_df.join(
+        orders_per_user,
+        expr("""
+            parsed_df.user_id = orders_per_user.user_id AND
+            parsed_df.timestamp >= window.start AND
+            parsed_df.timestamp < window.end
+        """),
+        "left"
+    ).select(
+        parsed_df["*"],
+        col("orders_per_user_1m")
+    ).fillna(0)
+
+    # ML Inference: Detect Fraud
+    predictions_df = enriched_df.withColumn("fraud_res", fraud_check_udf(col("amount"), col("orders_per_user_1m"))) \
+        .select("*", "fraud_res.is_fraud", "fraud_res.fraud_score") \
+        .drop("fraud_res")
+        
+    return predictions_df
 
 def main():
     # Configuration
@@ -67,41 +103,11 @@ def main():
         .option("kafka.bootstrap.servers", kafka_bootstrap_servers) \
         .option("subscribe", "orders") \
         .option("startingOffsets", "latest") \
-        .load()
+        .load() \
+        .selectExpr("CAST(value AS STRING)")
 
-    # 2. Parse JSON
-    parsed_df = raw_df.selectExpr("CAST(value AS STRING)") \
-        .select(from_json(col("value"), schema).alias("data")) \
-        .select("data.*") \
-        .withColumn("timestamp", col("timestamp").cast(TimestampType())) \
-        .withWatermark("timestamp", "1 minute")
-
-    # 3. Feature Engineering: Windowed Aggregations
-    orders_per_user = parsed_df \
-        .groupBy(
-            window(col("timestamp"), "1 minute", "30 seconds"),
-            col("user_id")
-        ).count() \
-        .withColumnRenamed("count", "orders_per_user_1m")
-
-    # Join back to the main stream
-    enriched_df = parsed_df.join(
-        orders_per_user,
-        expr("""
-            parsed_df.user_id = orders_per_user.user_id AND
-            parsed_df.timestamp >= window.start AND
-            parsed_df.timestamp < window.end
-        """),
-        "left"
-    ).select(
-        parsed_df["*"],
-        col("orders_per_user_1m")
-    ).fillna(0)
-
-    # 4. ML Inference: Detect Fraud
-    predictions_df = enriched_df.withColumn("fraud_res", fraud_check_udf(col("amount"), col("orders_per_user_1m"))) \
-        .select("*", "fraud_res.is_fraud", "fraud_res.fraud_score") \
-        .drop("fraud_res")
+    # Call the transformation logic
+    predictions_df = transform_orders(raw_df, schema)
 
     # 5. Output sinks
     # a) Console sink
@@ -135,5 +141,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
