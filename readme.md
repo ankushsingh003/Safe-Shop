@@ -137,12 +137,66 @@ We have upgraded from a simple Isolation Forest to a State-of-the-Art **4-Layer 
 
 ## 👥 Stakeholder Impact
 
-| Stakeholder | Benefit |
-|------------|---------|
-| Business Team | Live dashboard to monitor sales 24/7 |
-| Finance Team | Instant fraud alerts, reduced chargebacks |
-| Supply Chain | Demand forecast to manage inventory proactively |
 | Data Team | Clean, unified, reliable pipeline replacing data silos |
+|------------|---------|
+
+---
+
+## 🛡️ The 9-Layer Fraud Intelligence Shield
+
+```mermaid
+graph TD
+    A[Order Event] -->|1. Ghost Firewall| B{L9: Blocked?}
+    B -->|Yes| C[403 Forbidden]
+    B -->|No| D[2. Ingest: Kafka]
+    D --> E[3. Clean: Data Guardian]
+    E -->|Rejected| F[Dead Letter Queue]
+    E -->|Valid| G[4. Enrich: Redis Feature Store]
+    G --> H[5. Score: Ensemble + GNN]
+    H -->|Borderline| I[6. Investigate: Agentic AI]
+    I --> J{Decision}
+    J -->|Critical Fraud| K[7. Strike: Ghost Firewall]
+    J -->|Alert| L[8. Notify: Ops Alert Bot]
+    H --> M[9. Forecast: TFT Demand Model]
+    M --> N[(PostgreSQL Warehouse)]
+```
+
+---
+
+## 🛠️ Market Integration API
+
+### `POST /predict`
+The primary endpoint for fraud intelligence.
+- **Security**: Requires `X-API-KEY`.
+- **Latency Target**: 50ms - 200ms (depending on Layer 2 triggers).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `order_id` | string | Unique transaction ID |
+| `order_amount` | float | Total value in USD |
+| `ip_address` | string | Origin IPv4/IPv6 |
+
+### `POST /forecast`
+Predicts category-level demand for the next 24 hours.
+- **Model**: Temporal Fusion Transformer (TFT).
+
+---
+
+## 🚀 Production Quickstart (Day 1)
+
+1. **Environmental Audit**:
+   Run the system check to verify Kafka, Redis, and Postgres are active:
+   ```bash
+   python scripts/init_system.py
+   ```
+
+2. **Start the Intelligence API**:
+   ```bash
+   cd ml/serve && uvicorn app:app --host 0.0.0.0 --port 8000
+   ```
+
+3. **Deploy Spark Stream on Databricks**:
+   Refer to the [databricks_migration_guide.md](./databricks_migration_guide.md).
 
 ---
 
