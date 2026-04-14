@@ -8,13 +8,20 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     hostname: kafka
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
+    restart: on-failure
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -53,16 +60,21 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   spark-master:
-    image: apache/spark:latest
+    image: apache/spark:3.5.1
     container_name: spark-master
     environment:
       - SPARK_MODE=master
     ports:
       - "${SPARK_MASTER_WEBUI_PORT}:8080"
       - "${SPARK_MASTER_PORT}:7077"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    restart: always
+    volumes:
+      - ..:/app
+    working_dir: /app
 
   spark-worker:
-    image: apache/spark:latest
+    image: apache/spark:3.5.1
     container_name: spark-worker
     depends_on:
       - spark-master
@@ -71,6 +83,11 @@ services:
       - SPARK_MASTER_URL=spark://spark-master:7077
     ports:
       - "${SPARK_WORKER_WEBUI_PORT}:8081"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    restart: always
+    volumes:
+      - ..:/app
+    working_dir: /app
 
 volumes:
   postgres_data:
