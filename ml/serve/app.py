@@ -12,6 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import shap
+from pythonjsonlogger import jsonlogger
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter
 from fastapi.security import APIKeyHeader
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -43,9 +46,17 @@ from pytorch_forecasting import TemporalFusionTransformer
 # Import Agentic AI components
 from ml.agents.fraud_investigator import fraud_investigator
 
-# Setup Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup Structured Logging
+logHandler = logging.StreamHandler()
+formatter = jsonlogger.JsonFormatter('%(timestamp)s %(levelname)s %(message)s %(order_id)s %(fraud_score)s')
+logHandler.setFormatter(formatter)
+logger = logging.getLogger("fraud_api")
+logger.addHandler(logHandler)
+logger.setLevel(logging.INFO)
+
+# Prometheus Custom Metrics
+FRAUD_COUNTER = Counter("fraud_orders_detected_total", "Total number of fraudulent orders detected")
+AGENT_CALLS = Counter("agent_investigations_total", "Total number of agentic AI investigations triggered")
 
 app = FastAPI(
     title="Real-Time Fraud & Demand Intelligence API",
@@ -61,6 +72,9 @@ app.add_middleware(
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Initialize Prometheus Instrumentator
+Instrumentator().instrument(app).bootstrap()
 
 # --------------------------------------------------------------------------
 # CONFIG & MODEL LOADING
@@ -219,6 +233,9 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
     max_score = champion_score
     is_fraud = max_score > model_artifacts.get("threshold", 0.5)
     
+    if is_fraud:
+        FRAUD_COUNTER.inc()
+    
     investigator_involved = False
     reasoning = "Automated model scoring (Champion Ensemble)."
     risk_level = "LOW"
@@ -227,6 +244,7 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
         risk_level = "CRITICAL"
     elif max_score > 0.4:
         # BORDERLINE: Trigger Agentic AI
+        AGENT_CALLS.inc()
         investigator_involved = True
         risk_level = "HIGH"
         
@@ -242,8 +260,17 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
             reasoning = agent_result.get("reasoning", "Agent investigation complete.")
             if agent_result["decision"] == "FINAL_BLOCK":
                 is_fraud = True
+                FRAUD_COUNTER.inc()
         except Exception as e:
-            logger.error(f"Agent error: {e}")
+            logger.error("Agent investigation failed", extra={"order_id": order.order_id, "error": str(e)})
+
+    # Structured Success Log
+    logger.info("Prediction processed successfully", extra={
+        "order_id": order.order_id, 
+        "fraud_score": round(max_score, 4), 
+        "is_fraud": is_fraud,
+        "risk_level": risk_level
+    })
 
     return FraudResponse(
         order_id=order.order_id,

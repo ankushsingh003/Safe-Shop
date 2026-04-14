@@ -33,4 +33,4 @@ pytorch-forecasting>=1.0.0
 pytorch-lightning>=2.0.0
 
 # Layer 5: MLOps & Monitoring
-evidently>=0.4.0
+evidently>=0.4.0prometheus-fastapi-instrumentator>=6.0.0
