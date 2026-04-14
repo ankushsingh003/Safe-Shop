@@ -31,6 +31,8 @@ def get_order():
         "quantity": random.randint(1, 5),
         "payment_method": random.choice(['Credit Card', 'UPI', 'PayPal', 'Debit Card']),
         "ip_address": fake.ipv4(),
+        "device_type": random.choice(['mobile', 'desktop', 'tablet']),
+        "location_mismatch": random.choice([0, 0, 0, 0, 1]), # 20% chance of mismatch
         "timestamp": datetime.utcnow().isoformat()
     }
 

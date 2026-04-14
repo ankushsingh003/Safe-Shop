@@ -98,19 +98,23 @@ realtime-ecommerce-pipeline/
 
 ---
 
-## 🤖 ML Components
+## 🧠 Fraud Intelligence System (Real-Time)
 
-### 1. Fraud Detection (Real-Time)
-- **Model:** Isolation Forest
-- **Trigger:** Every order event as it passes through Spark Streaming
-- **Features:** `order_amount`, `orders_per_user_last_minute`, `location_mismatch`, `device_type`
-- **Output:** `fraud_score` (0–1) + `is_fraud` flag written to PostgreSQL
+We have upgraded from a simple Isolation Forest to a State-of-the-Art **4-Layer Fraud Roadmap**:
 
-### 2. Demand Forecasting (Batch)
-- **Model:** Facebook Prophet / LSTM
-- **Trigger:** Airflow DAG runs every hour
-- **Features:** Historical order counts per product per region
-- **Output:** Predicted order volume for next 1–6 hours
+| Layer | Component | Technology | Description |
+|-------|-----------|------------|-------------|
+| **L1** | **Ring Detection** | GNN (GraphSAGE) | Detects fraud rings by connecting orders sharing IP/Device. |
+| **L2** | **Agentic AI** | LangGraph | Borderline cases trigger an AI Investigator to research and decide. |
+| **L3** | **Feature Store** | Redis | sub-3ms lookup of user reputation and real-time velocity. |
+| **L4** | **Ensemble Model** | XGBoost + LightGBM | High-precision stacked ensemble with SHAP explanations. |
+
+### Prediction Workflow:
+1. **Ingest**: Spark captures order and computes basic session velocity.
+2. **Inference**: FastAPI receives the order and enriches it with L3 (Redis) features.
+3. **Score**: L1 (GNN) and L4 (Ensemble) provide probability scores.
+4. **Investigate**: If fraud score is borderline (0.4–0.8), L2 (Agentic AI) is triggered to perform "Reasoning-over-Evidence".
+5. **Explain**: SHAP values generate human-readable reasons for every block (e.g., "High-risk proxy + New account + Velocity spike").
 
 ---
 

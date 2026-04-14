@@ -16,32 +16,46 @@ schema = StructType([
     StructField("quantity", IntegerType(), True),
     StructField("payment_method", StringType(), True),
     StructField("ip_address", StringType(), True),
+    StructField("device_type", StringType(), True),
+    StructField("location_mismatch", IntegerType(), True),
     StructField("timestamp", StringType(), True)
 ])
 
 # UDF for Fraud Detection (Calling FastAPI)
-def detect_fraud(amount, orders_per_user_1m):
+def detect_fraud(order_id, user_id, amount, ip, device, location_mismatch, orders_per_user_1m):
     url = os.environ.get("ML_SERVER_URL", "http://localhost:8000") + "/predict"
     try:
-        response = requests.post(
-            url, 
-            json={"order_amount": float(amount), "orders_per_user_1m": float(orders_per_user_1m)},
-            timeout=1
-        )
+        payload = {
+            "order_id": str(order_id),
+            "user_id": str(user_id),
+            "order_amount": float(amount),
+            "ip_address": str(ip),
+            "device_type": str(device),
+            "location_mismatch": int(location_mismatch),
+            "orders_per_user_last_minute": int(orders_per_user_1m)
+        }
+        response = requests.post(url, json=payload, timeout=2)
         if response.status_code == 200:
             res = response.json()
-            return res.get("is_fraud", False), res.get("fraud_score", 0.0)
+            return (
+                res.get("is_fraud", False), 
+                res.get("fraud_score", 0.0),
+                res.get("risk_level", "UNKNOWN"),
+                res.get("reasoning", "")
+            )
     except Exception as e:
         print(f"ML API Error: {e}")
     # Default fallback
-    return False, 0.0
+    return False, 0.0, "ERROR", str(e)
 
 # Register the UDF
 fraud_udf_schema = StructType([
     StructField("is_fraud", BooleanType(), False),
-    StructField("fraud_score", FloatType(), False)
+    StructField("fraud_score", FloatType(), False),
+    StructField("risk_level", StringType(), False),
+    StructField("reasoning", StringType(), False)
 ])
-fraud_check_udf = udf(detect_fraud, fraud_check_udf_schema)
+fraud_check_udf = udf(detect_fraud, fraud_udf_schema)
 
 def transform_orders(raw_df, schema):
     """Core transformation logic for unit testing"""
@@ -74,9 +88,15 @@ def transform_orders(raw_df, schema):
     ).fillna(0)
 
     # ML Inference: Detect Fraud
-    predictions_df = enriched_df.withColumn("fraud_res", fraud_check_udf(col("amount"), col("orders_per_user_1m"))) \
-        .select("*", "fraud_res.is_fraud", "fraud_res.fraud_score") \
-        .drop("fraud_res")
+    predictions_df = enriched_df.withColumn(
+        "fraud_res", 
+        fraud_check_udf(
+            col("order_id"), col("user_id"), col("amount"), 
+            col("ip_address"), col("device_type"), col("location_mismatch"),
+            col("orders_per_user_1m")
+        )
+    ).select("*", "fraud_res.is_fraud", "fraud_res.fraud_score", "fraud_res.risk_level", "fraud_res.reasoning") \
+     .drop("fraud_res")
         
     return predictions_df
 

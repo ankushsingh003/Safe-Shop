@@ -27,3 +27,10 @@ langchain>=0.1.0
 langchain-openai>=0.0.1
 # Redis Feature Store
 redis>=5.0.0
+
+# Layer 4: Deep Learning Forecasting
+pytorch-forecasting>=1.0.0
+pytorch-lightning>=2.0.0
+
+# Layer 5: MLOps & Monitoring
+evidently>=0.4.0
