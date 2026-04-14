@@ -75,7 +75,7 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Initialize Prometheus Instrumentator
-Instrumentator().instrument(app).bootstrap()
+Instrumentator().instrument(app).expose(app)
 
 # --------------------------------------------------------------------------
 # CONFIG & MODEL LOADING
