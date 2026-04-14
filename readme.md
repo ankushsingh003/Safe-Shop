@@ -111,15 +111,16 @@ We have upgraded from a simple Isolation Forest to a State-of-the-Art **4-Layer 
 | **L5** | **MLOps & A/B** | **Shadow Testing** | Real-time Challenger vs Champion scoring & Drift detection. | ✅ 100% |
 | **L6** | **Security & Compliance** | **SHA-256 Hashing** | Integrated PII masking and Secret Manager for GDPR readiness. | ✅ 100% |
 | **L7** | **Data Guardian** | **Dead Letter Queue** | Real-time schema enforcement and anomalous data routing. | ✅ 100% |
+| **L8** | **Ops Alerting** | **Slack/Webhook** | Real-time notifications for CRITICAL fraud rings. | ✅ 100% |
 
-### Prediction Workflow (Final v5.0):
+### Prediction Workflow (Final v6.0):
 1. **Ingest**: Spark captures order and triggers the **Data Guardian (L7)**.
-2. **Filter**: Valid data proceeds; Anomalous data is routed to the **Dead Letter Queue (L7)**.
-3. **Inference**: FastAPI receives the order and enriches it with **L3 (Redis)** features.
-4. **Score (Champion)**: **L1 (Ensemble)** provides the primary fraud probability.
-5. **Score (Challenger)**: **L1 (GNN)** runs in **Shadow Mode (L5)** to compare performance.
-6. **Investigate**: If borderline, **L2 (Agentic AI)** performs LangGraph-based reasoning.
-7. **Forecast**: **L4 (TFT)** handles high-granularity demand forecasting via a separate endpoint.
+2. **Filter**: Valid data proceeds; Anomalous data is routed to the **DLQ (L7)**.
+3. **Inference**: FastAPI enriches the order with **L3 (Redis)** features.
+4. **Score**: Dual-scoring with **L1 (Ensemble)** and **L1 (GNN)** in Shadow mode.
+5. **Investigate**: If borderline, **L2 (Agentic AI)** performs LangGraph research.
+6. **Alert**: If **CRITICAL**, **L8 (Alert Bot)** sends a reach notification to Slack/Discord. 
+7. **Forecast**: **L4 (TFT)** handles stock demand forecasting via a separate API.
 
 ---
 

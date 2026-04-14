@@ -45,6 +45,7 @@ from pytorch_forecasting import TemporalFusionTransformer
 
 # Import Agentic AI components
 from ml.agents.fraud_investigator import fraud_investigator
+from ml.ops.alerts import alert_bot
 
 # Setup Structured Logging
 logHandler = logging.StreamHandler()
@@ -271,6 +272,13 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
         "is_fraud": is_fraud,
         "risk_level": risk_level
     })
+
+    # 4. Trigger Real-Time Alert (Layer 8)
+    if risk_level in ["CRITICAL", "HIGH"]:
+        background_tasks.add_task(
+            alert_bot.send_fraud_alert, 
+            order.order_id, max_score, risk_level, reasoning
+        )
 
     return FraudResponse(
         order_id=order.order_id,
