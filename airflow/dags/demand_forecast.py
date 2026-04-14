@@ -2,8 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import os
-import joblib
-import pandas as pd
+import requests
 import psycopg2
 
 default_args = {
@@ -13,56 +12,53 @@ default_args = {
 }
 
 def generate_forecast():
-    db_params = {
-        'dbname': 'ecommerce_orders',
-        'user': 'postgres',
-        'password': 'postgres',
-        'host': 'localhost',
-        'port': '5432'
-    }
+    """Layer 4: Triggers TFT Forecast from the Intelligence API"""
+    api_url = os.environ.get("ML_API_URL", "http://localhost:8000/forecast")
+    api_key = os.environ.get("ML_API_KEY", "dev-secret-key")
     
-    model_path = 'ml/models/forecast_model.pkl'
-    if not os.path.exists(model_path):
-        raise FileNotFoundError("Forecast model not found. Run training first.")
+    payload = {"category": "All-Product-Aggregated", "horizon_hours": 24}
+    headers = {"X-API-KEY": api_key}
+    
+    try:
+        response = requests.post(api_url, json=payload, headers=headers)
+        if response.status_code != 200:
+            raise Exception(f"API Forecast failed: {response.text}")
+            
+        forecast_data = response.json()["predictions"]
         
-    model = joblib.load(model_path)
-    
-    # Generate features for next 6 hours
-    now = datetime.now().replace(minute=0, second=0, microsecond=0)
-    future_hours = [now + timedelta(hours=i) for i in range(1, 7)]
-    
-    forecast_df = pd.DataFrame({'ds': future_hours})
-    forecast_df['hour'] = forecast_df['ds'].dt.hour
-    forecast_df['is_weekend'] = (forecast_df['ds'].dt.dayofweek >= 5).astype(int)
-    
-    predictions = model.predict(forecast_df[['hour', 'is_weekend']])
-    forecast_df['predicted_volume'] = predictions
-    
-    # Write to DB
-    conn = psycopg2.connect(**db_params)
-    cur = conn.cursor()
-    
-    # Create forecast table if not exists
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS demand_forecast (
-            forecast_time TIMESTAMP PRIMARY KEY,
-            predicted_orders FLOAT,
-            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """)
-    
-    for _, row in forecast_df.iterrows():
+        # Write to DB
+        conn = psycopg2.connect(
+            dbname=os.environ.get("POSTGRES_DB", "ecommerce_orders"),
+            user=os.environ.get("POSTGRES_USER", "postgres"),
+            password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+            host=os.environ.get("POSTGRES_HOST", "localhost")
+        )
+        cur = conn.cursor()
+        
+        # Table creation code remains same...
         cur.execute("""
-            INSERT INTO demand_forecast (forecast_time, predicted_orders)
-            VALUES (%s, %s)
-            ON CONFLICT (forecast_time) DO UPDATE 
-            SET predicted_orders = EXCLUDED.predicted_orders,
-                generated_at = EXCLUDED.generated_at;
-        """, (row['ds'], row['predicted_volume']))
+            CREATE TABLE IF NOT EXISTS demand_forecast (
+                forecast_time TIMESTAMP PRIMARY KEY,
+                predicted_orders FLOAT,
+                generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
         
-    conn.commit()
-    cur.close()
-    conn.close()
+        # Insert predictions
+        now = datetime.now()
+        for p in forecast_data:
+            forecast_time = now + timedelta(hours=p["hour_offset"])
+            cur.execute("""
+                INSERT INTO demand_forecast (forecast_time, predicted_orders)
+                VALUES (%s, %s)
+                ON CONFLICT (forecast_time) DO UPDATE SET predicted_orders = EXCLUDED.predicted_orders;
+            """, (forecast_time, p["predicted_volume"]))
+            
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"FAILED to generate forecast: {e}")
     print("Forecast generated and stored.")
 
 with DAG(

@@ -25,6 +25,17 @@ def check_drift():
     else:
         print(f"Drift detector not found at {script_path}")
 
+def train_gnn():
+    """Triggers the GNN fraud ring model training"""
+    script_path = "ml/train/train_gnn_fraud_model.py"
+    if os.path.exists(script_path):
+        result = subprocess.run(["python", script_path], capture_output=True, text=True)
+        print(result.stdout)
+        if result.returncode != 0:
+            raise Exception(f"GNN Training failed: {result.stderr}")
+    else:
+        raise FileNotFoundError(f"GNN Training script not found at {script_path}")
+
 def train_model():
     """Triggers the model training script"""
     script_path = "ml/train/train_fraud_model.py"
@@ -54,4 +65,9 @@ with DAG(
         python_callable=train_model,
     )
 
-    drift_task >> retrain_task
+    gnn_task = PythonOperator(
+        task_id='train_gnn_fraud_rings',
+        python_callable=train_gnn,
+    )
+
+    drift_task >> [retrain_task, gnn_task]
