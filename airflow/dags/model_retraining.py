@@ -14,6 +14,17 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
+def check_drift():
+    """Triggers the drift detection script"""
+    script_path = "ml/mlops/drift_detector.py"
+    if os.path.exists(script_path):
+        result = subprocess.run(["python", script_path], capture_output=True, text=True)
+        print(result.stdout)
+        if result.returncode != 0:
+            print(f"Warning: Drift detection failed: {result.stderr}")
+    else:
+        print(f"Drift detector not found at {script_path}")
+
 def train_model():
     """Triggers the model training script"""
     script_path = "ml/train/train_fraud_model.py"
@@ -26,16 +37,21 @@ def train_model():
         raise FileNotFoundError(f"Training script not found at {script_path}")
 
 with DAG(
-    'fraud_model_retraining',
+    'fraud_model_lifecycle',
     default_args=default_args,
-    description='Retrains the fraud detection model periodically',
-    schedule_interval=timedelta(days=1), # Retrain daily
+    description='Monitors drift and retrains the ensemble fraud model',
+    schedule_interval=timedelta(days=1),
     catchup=False,
 ) as dag:
 
+    drift_task = PythonOperator(
+        task_id='monitor_drift',
+        python_callable=check_drift,
+    )
+
     retrain_task = PythonOperator(
-        task_id='retrain_fraud_model',
+        task_id='retrain_ensemble_model',
         python_callable=train_model,
     )
 
-    retrain_task
+    drift_task >> retrain_task

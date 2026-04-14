@@ -108,6 +108,7 @@ We have upgraded from a simple Isolation Forest to a State-of-the-Art **4-Layer 
 | **L2** | **Agentic AI** | LangGraph | Borderline cases trigger an AI Investigator to research and decide. |
 | **L3** | **Feature Store** | Redis | sub-3ms lookup of user reputation and real-time velocity. |
 | **L4** | **Ensemble Model** | XGBoost + LightGBM | High-precision stacked ensemble with SHAP explanations. |
+| **L5** | **MLOps Monitoring** | Evidently | Daily drift detection and auto-retraining triggers. |
 
 ### Prediction Workflow:
 1. **Ingest**: Spark captures order and computes basic session velocity.
