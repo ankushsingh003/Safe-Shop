@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, window, count, expr, udf
+from pyspark.sql.functions import from_json, col, window, count, expr, udf, sha2, concat_ws
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType, TimestampType, BooleanType, FloatType
 import os
 import requests
@@ -59,23 +59,31 @@ fraud_udf_schema = StructType([
 fraud_check_udf = udf(detect_fraud, fraud_udf_schema)
 
 def transform_orders(raw_df, schema):
-    """Core transformation logic for unit testing"""
-    # Parse JSON
+    """Core transformation logic with PII Masking"""
+    # 1. Parse JSON
     parsed_df = raw_df.select(from_json(col("value"), schema).alias("data")) \
         .select("data.*") \
         .withColumn("timestamp", col("timestamp").cast(TimestampType())) \
         .withWatermark("timestamp", "1 minute")
 
-    # Feature Engineering: Windowed Aggregations
-    orders_per_user = parsed_df \
+    # 2. PII MASKING (Layer 6: Security & Compliance)
+    # Pseudonymize IP Address using SHA-256
+    # Mask User ID for storage privacy
+    protected_df = parsed_df \
+        .withColumn("ip_address_raw", col("ip_address")) \
+        .withColumn("ip_address", sha2(col("ip_address"), 256)) \
+        .withColumn("user_id_masked", concat_ws("-", col("user_id"), col("order_id")))
+
+    # 3. Feature Engineering: Windowed Aggregations
+    orders_per_user = protected_df \
         .groupBy(
             window(col("timestamp"), "1 minute", "30 seconds"),
             col("user_id")
         ).count() \
         .withColumnRenamed("count", "orders_per_user_1m")
 
-    # Join back to the main stream
-    enriched_df = parsed_df.join(
+    # 4. Join back to the main stream
+    enriched_df = protected_df.join(
         orders_per_user,
         expr("""
             parsed_df.user_id = orders_per_user.user_id AND
