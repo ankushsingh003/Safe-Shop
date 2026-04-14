@@ -113,15 +113,18 @@ We have upgraded from a simple Isolation Forest to a State-of-the-Art **4-Layer 
 | **L7** | **Data Guardian** | **Dead Letter Queue** | Real-time schema enforcement and anomalous data routing. | ✅ 100% |
 | **L8** | **Ops Alerting** | **Slack/Webhook** | Real-time notifications for CRITICAL fraud rings. | ✅ 100% |
 | **L9** | **Ghost Firewall** | **Auto-Blocking** | Real-time IP blacklisting for CRITICAL threats. | ✅ 100% |
+| **L10** | **Precision Tackling** | **Idempotency** | Exactly-once event processing and local feature attribution. | ✅ 100% |
 
-### Prediction Workflow (Final v7.0):
-1. **Defend**: **Ghost Firewall (L9)** checks Redis for blacklisted IPs before even running the ML code.
-2. **Ingest**: Valid requests hit Spark, which triggers the **Data Guardian (L7)**.
-3. **Filter**: Valid data proceeds; Anomalous data is routed to the **DLQ (L7)**.
-4. **Inference**: FastAPI enriches the order with **L3 (Redis)** features.
-5. **Score**: Dual-scoring with **L1 (Ensemble)** and **L1 (GNN)** in Shadow mode.
-6. **Investigate**: If borderline, **L2 (Agentic AI)** performs LangGraph research.
-7. **Strike**: If **CRITICAL**, **Ghost Firewall (L9)** blacklists the IP and **Alert Bot (L8)** notifies the team.
+### Prediction Workflow (Final v10.0):
+1. **Defend**: **Ghost Firewall (L9)** checks for blacklisted IPs.
+2. **Precision**: **Idempotency (L10)** checks Redis for previously tackled events to prevent double-processing.
+3. **Ingest**: Valid requests hit Spark, which triggers the **Data Guardian (L7)**.
+4. **Filter**: Valid data proceeds; Anomalous data is routed to the **DLQ (L7)**.
+5. **Inference**: FastAPI enriches the order with **L3 (Redis)** features.
+6. **Score**: Dual-scoring with **L1+L4 Ensemble** and **L1 GNN** in Shadow mode.
+7. **Investigate**: If borderline, **L2 (Agentic AI)** performs LangGraph research.
+8. **Analyze**: **Layer 10** identifies the top 3 drivers (Attribution) for the final report.
+9. **Strike & Alert**: If **CRITICAL**, **Ghost Firewall (L9)** blacklists the IP and **Alert Bot (L8)** notifies the team.
 
 ---
 

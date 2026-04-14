@@ -168,6 +168,7 @@ class FraudResponse(BaseModel):
     fraud_score: float
     risk_level: str
     reasoning: str
+    top_drivers: Optional[List[str]] = None # Layer 10: Precision Attribution
     shadow_decision: Optional[str] = None # Layer 5: Shadow A/B Result
     model_version: str
     investigator_involved: bool
@@ -199,6 +200,20 @@ def log_shadow_ab(order_id, champion_score, challenger_score):
             round(abs(champion_score - challenger_score), 4)
         ])
 
+def get_top_drivers(order_data: pd.DataFrame, ensemble_model, feature_cols):
+    """Layer 10: Extracts the top 3 fraud triggers using basic attribution."""
+    try:
+        drivers = []
+        if order_data["orders_per_user_last_minute"].iloc[0] > 5:
+            drivers.append(f"High Velocity ({order_data['orders_per_user_last_minute'].iloc[0]})")
+        if order_data["location_mismatch"].iloc[0] == 1:
+            drivers.append("Location Mismatch")
+        if order_data["order_amount"].iloc[0] > 1000:
+            drivers.append("High Ticket Value")
+        return drivers[:3] if drivers else ["Normal Behavioral Profile"]
+    except:
+        return ["Attribution unavailable"]
+
 def get_gnn_score(order_amount):
     if gnn_model is None: return 0.5
     try:
@@ -220,6 +235,13 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
     if firewall and firewall.is_blocked(order.ip_address):
         logger.warning(f"🛡️ BLOCKED REQUEST: Connection from blacklisted IP {order.ip_address}")
         raise HTTPException(status_code=403, detail="Your IP has been blacklisted due to suspicious activity.")
+
+    # 1. IDEMPOTENCY CHECK (Layer 10: Precision Tackling)
+    if redis_client:
+        cached_res = redis_client.get(f"order_cache:{order.order_id}")
+        if cached_res:
+            logger.info(f"♻️ IDEMPOTENCY: Returning cached result for Order {order_id}")
+            return FraudResponse(**json.loads(cached_res))
 
     if not model_artifacts:
         raise HTTPException(status_code=503, detail="Models not ready")
@@ -296,16 +318,23 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
             firewall.block_ip, order.ip_address, reasoning
         )
 
-    return FraudResponse(
+    # 6. IDEMPOTENCY CACHING (Layer 10)
+    res = FraudResponse(
         order_id=order.order_id,
         is_fraud=is_fraud,
         fraud_score=round(max_score, 4),
         risk_level=risk_level,
         reasoning=reasoning,
+        top_drivers=get_top_drivers(input_data, ensemble, feat_cols),
         shadow_decision="CHALLENGER_GNN_SCORE: {:.4f}".format(challenger_score),
-        model_version="v4.0.0-final",
+        model_version="v10.0-final",
         investigator_involved=investigator_involved
     )
+    
+    if redis_client:
+        redis_client.setex(f"order_cache:{order.order_id}", 86400, res.json())
+
+    return res
 
 @app.post("/forecast", response_model=ForecastResponse)
 async def forecast(req: ForecastRequest, api_key: str = Depends(get_api_key)):
