@@ -46,8 +46,9 @@ def detect_fraud(order_id, user_id, amount, ip, device, location_mismatch, order
             )
     except Exception as e:
         print(f"ML API Error: {e}")
-    # Default fallback
-    return False, 0.0, "ERROR", str(e)
+        return False, 0.0, "ERROR", str(e)
+    # Default fallback (e.g. status code not 200)
+    return False, 0.0, "ERROR", "Incomplete response from ML Server"
 
 # Register the UDF
 fraud_udf_schema = StructType([

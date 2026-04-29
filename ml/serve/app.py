@@ -7,6 +7,7 @@ import redis
 import logging
 import csv
 from datetime import datetime
+import json
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Security, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -108,7 +109,7 @@ class FraudGNN(torch.nn.Module):
 
 @app.on_event("startup")
 async def startup_event():
-    global model_artifacts, gnn_model, tft_model, redis_client
+    global model_artifacts, gnn_model, redis_client
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -240,7 +241,7 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
     if redis_client:
         cached_res = redis_client.get(f"order_cache:{order.order_id}")
         if cached_res:
-            logger.info(f"♻️ IDEMPOTENCY: Returning cached result for Order {order_id}")
+            logger.info(f"♻️ IDEMPOTENCY: Returning cached result for Order {order.order_id}")
             return FraudResponse(**json.loads(cached_res))
 
     if not model_artifacts:
