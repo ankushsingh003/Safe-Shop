@@ -20,7 +20,7 @@ def generate_forecast():
     headers = {"X-API-KEY": api_key}
     
     try:
-        response = requests.post(api_url, json=payload, headers=headers)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         if response.status_code != 200:
             raise Exception(f"API Forecast failed: {response.text}")
             

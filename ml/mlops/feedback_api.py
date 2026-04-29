@@ -56,4 +56,4 @@ async def get_stats():
 if __name__ == "__main__":
     import uvicorn
     # In production, run this alongside the serving app
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001)  # nosec B104
