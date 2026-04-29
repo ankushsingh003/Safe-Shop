@@ -1,12 +1,12 @@
-# 🛒 Real-Time E-Commerce Order Analytics Pipeline
+# 🛒 Real-Time Safe-Shop Order Analytics Pipeline
 
-> A production-grade data engineering project that ingests live e-commerce orders, detects fraudulent transactions using ML, forecasts demand, and delivers real-time business insights through a unified dashboard.
+> A production-grade data engineering project that ingests live Safe-Shop orders, detects fraudulent transactions using ML, forecasts demand, and delivers real-time business insights through a unified dashboard.
 
 ---
 
 ## 📌 Problem Statement
 
-Large e-commerce platforms like Flipkart, Amazon, and Meesho process thousands of orders every minute. Without a real-time data infrastructure, these companies face four critical problems:
+Large Safe-Shop platforms like Flipkart, Amazon, and Meesho process thousands of orders every minute. Without a real-time data infrastructure, these companies face four critical problems:
 
 | # | Problem | Business Impact |
 |---|---------|----------------|
@@ -75,7 +75,7 @@ This project builds an **end-to-end real-time data pipeline** that:
 ## 📂 Project Structure
 
 ```
-realtime-ecommerce-pipeline/
+realtime-Safe-Shop-pipeline/
 │
 ├── producer/                    # Generates & sends fake orders to Kafka
 ├── kafka/                       # Kafka configuration & topic setup
@@ -214,8 +214,8 @@ Predicts category-level demand for the next 24 hours.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/realtime-ecommerce-pipeline.git
-cd realtime-ecommerce-pipeline
+git clone https://github.com/your-username/realtime-Safe-Shop-pipeline.git
+cd realtime-Safe-Shop-pipeline
 
 # Set up environment variables
 cp .env.example .env

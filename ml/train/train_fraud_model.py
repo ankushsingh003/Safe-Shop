@@ -172,7 +172,7 @@ FEATURE_COLS = [
 def generate_training_data(n_samples: int = 50000) -> pd.DataFrame:
     """
     Generates realistic imbalanced fraud data.
-    Fraud rate: ~1.5% (realistic ecommerce)
+    Fraud rate: ~1.5% (realistic Safe-Shop)
     Replace this function with your DB query when ready.
     """
     np.random.seed(RANDOM_STATE)

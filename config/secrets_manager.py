@@ -27,7 +27,7 @@ class SecretManager:
 # --------------------------------------------------------------------------
 # All services should import these constants instead of calling os.environ
 API_KEY          = SecretManager.get_secret("ML_API_KEY", "dev-secret-key")
-POSTGRES_DB      = SecretManager.get_secret("POSTGRES_DB", "ecommerce_orders")
+POSTGRES_DB      = SecretManager.get_secret("POSTGRES_DB", "safeshop_orders")
 POSTGRES_USER    = SecretManager.get_secret("POSTGRES_USER", "postgres")
 POSTGRES_PWD     = SecretManager.get_secret("POSTGRES_PASSWORD", "postgres")
 KAFKA_SERVERS    = SecretManager.get_secret("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")

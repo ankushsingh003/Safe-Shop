@@ -3,7 +3,7 @@ import os
 import time
 
 def init_db():
-    db_name = os.environ.get("POSTGRES_DB", "ecommerce_orders")
+    db_name = os.environ.get("POSTGRES_DB", "safeshop_orders")
     db_user = os.environ.get("POSTGRES_USER", "postgres")
     db_password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     db_host = os.environ.get("POSTGRES_HOST", "localhost")

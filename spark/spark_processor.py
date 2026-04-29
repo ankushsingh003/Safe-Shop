@@ -120,7 +120,7 @@ def transform_orders(raw_df, schema):
 def main():
     # Configuration
     kafka_bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
-    postgres_db = os.environ.get("POSTGRES_DB", "ecommerce_orders")
+    postgres_db = os.environ.get("POSTGRES_DB", "safeshop_orders")
     postgres_user = os.environ.get("POSTGRES_USER", "postgres")
     postgres_password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     postgres_url = f"jdbc:postgresql://localhost:5432/{postgres_db}"

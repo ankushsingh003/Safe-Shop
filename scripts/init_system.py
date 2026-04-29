@@ -10,7 +10,7 @@ import psycopg2
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
 ML_API = "http://localhost:8000/health"
-DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ecommerce_orders")
+DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/safeshop_orders")
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger("system_init")

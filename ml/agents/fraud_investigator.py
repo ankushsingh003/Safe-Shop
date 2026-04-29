@@ -82,7 +82,7 @@ def reasoning_node(state: AgentState):
     evidence = "\n".join(state["evidence"])
     
     prompt = f"""
-    You are a Fraud Investigator at an E-commerce company.
+    You are a Fraud Investigator at a Safe-Shop company.
     Analyze the following order:
     - Order ID: {state['order_id']}
     - Ensemble Model Score: {scores.get('ensemble')}

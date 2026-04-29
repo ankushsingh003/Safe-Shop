@@ -28,7 +28,7 @@ def generate_forecast():
         
         # Write to DB
         conn = psycopg2.connect(
-            dbname=os.environ.get("POSTGRES_DB", "ecommerce_orders"),
+            dbname=os.environ.get("POSTGRES_DB", "safeshop_orders"),
             user=os.environ.get("POSTGRES_USER", "postgres"),
             password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
             host=os.environ.get("POSTGRES_HOST", "localhost")
