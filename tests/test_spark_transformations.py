@@ -4,6 +4,7 @@ from pyspark.sql.types import StructType, StructField, StringType, DoubleType, I
 from spark.spark_processor import transform_orders, schema
 import json
 from datetime import datetime
+from pyspark.sql.functions import from_json, col
 
 class TestSparkTransformations(unittest.TestCase):
     @classmethod
@@ -42,5 +43,4 @@ class TestSparkTransformations(unittest.TestCase):
         self.assertEqual(first_row.amount, 100.0)
 
 if __name__ == "__main__":
-    from pyspark.sql.functions import from_json, col
     unittest.main()
