@@ -38,9 +38,20 @@ if (-not ($envVars -like "API_KEY=*")) {
 
 $envVarString = $envVars -join ","
 
-# 2. Build the image using GCP Cloud Build (specifying the custom Dockerfile path)
+# 2. Build the image using GCP Cloud Build
 Write-Host "[INFO] Step 1: Building Docker image using Cloud Build..." -ForegroundColor Yellow
-gcloud builds submit --tag "gcr.io/$PROJECT_ID/safeshop-ml-api" --dockerfile docker/Dockerfile.ml .
+
+# Temporarily copy Dockerfile.ml to root as 'Dockerfile' to ensure compatibility across all gcloud versions
+Copy-Item docker/Dockerfile.ml Dockerfile
+
+try {
+    gcloud builds submit --tag "gcr.io/$PROJECT_ID/safeshop-ml-api" .
+}
+finally {
+    if (Test-Path Dockerfile) {
+        Remove-Item Dockerfile
+    }
+}
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Cloud Build failed." -ForegroundColor Red
