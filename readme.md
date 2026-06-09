@@ -1,251 +1,167 @@
-# 🛒 Real-Time E-Commerce Order Analytics Pipeline
+# 🛒 Real-Time E-Commerce Fraud & Demand Intelligence Pipeline
 
-> A production-grade data engineering project that ingests live Safe-Shop orders, detects fraudulent transactions using ML, forecasts demand, and delivers real-time business insights through a unified dashboard.
-
----
-
-## 📌 Problem Statement
-
-Large Safe-Shop platforms like Flipkart, Amazon, and Meesho process thousands of orders every minute. Without a real-time data infrastructure, these companies face four critical problems:
-
-| # | Problem | Business Impact |
-|---|---------|----------------|
-| 1 | **Fraud Orders** — Stolen cards, fake accounts, and bot orders go undetected until damage is done | Revenue loss, chargebacks |
-| 2 | **No Live Visibility** — Business teams only see yesterday's reports, not what's happening right now | Missed decisions, slow response |
-| 3 | **Demand Unpredictability** — Products go out of stock during sales events like Big Billion Days | Lost revenue, poor customer experience |
-| 4 | **Scattered Data** — Order data sits across 10+ systems with no unified pipeline | Inconsistent reporting, data silos |
+> A production-grade Data Engineering & MLOps ecosystem that ingests live order streams, detects fraudulent transactions using a multi-layer intelligence shield, and forecasts product demand using Deep Learning.
 
 ---
 
-## ✅ Solution
+## 📌 The Problem: "The Visibility Gap"
 
-This project builds an **end-to-end real-time data pipeline** that:
-
-- 🔴 **Ingests** live order events using Apache Kafka
-- ⚡ **Processes** streams in real time using Apache Spark Structured Streaming
-- 🤖 **Detects fraud** using an ML model (Isolation Forest) served via FastAPI
-- 📈 **Forecasts demand** using a time-series model (Prophet / LSTM)
-- 🗄️ **Stores** processed data in PostgreSQL and raw data in AWS S3 / Delta Lake
-- 🔁 **Orchestrates** workflows and retraining jobs using Apache Airflow
-- 📊 **Visualizes** live metrics in a Grafana dashboard
+In high-volume E-commerce (Flipkart, Amazon), thousands of transactions occur every second. Traditional batch processing leaves companies vulnerable to:
+- **Instant Fraud**: Bot attacks and stolen cards go undetected for hours.
+- **Stock-Outs**: Demand spikes (e.g., during "Big Billion Days") are missed in real-time.
+- **PII Exposure**: Lack of automated masking in streaming leads to compliance risks.
 
 ---
 
-## 🏗️ Architecture
+## ✅ The Solution: A Reactive Intelligence Shield
 
+This project implements a **10-Layer Reactive Pipeline** that bridges the gap between raw data and actionable intelligence.
+
+- 🔴 **Ingestion**: Live order events via **Apache Kafka**.
+- ⚡ **Processing**: Real-time ETL and schema enforcement via **Spark Structured Streaming**.
+- 🤖 **Fraud Shield**: A sophisticated ensemble of GNNs, Agentic AI, and Shadow Testing.
+- 📈 **Forecasting**: Temporal Fusion Transformers (TFT) for sub-hour demand prediction.
+- 🗄️ **Storage**: **PostgreSQL** for operational metrics and **Delta Lake** for the raw data lake.
+- 🔁 **Orchestration**: **Apache Airflow** managing model retraining and backfills.
+- 📊 **Visibility**: **Grafana** providing real-time P99 latency and fraud distribution metrics.
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TD
+    subgraph "Data Generation"
+        P[Order Producer] -->|JSON Events| K[Kafka Broker]
+    end
+
+    subgraph "Stream Processing (Spark)"
+        K --> S[Spark Processor]
+        S -->|Layer 7: Quality| DG{Data Guardian}
+        DG -->|Invalid| DLQ[Dead Letter Queue]
+        DG -->|Valid| PM[Layer 6: PII Masking]
+        PM --> EN[Layer 3: Feature Enrichment]
+    end
+
+    subgraph "Intelligence API (FastAPI)"
+        EN -->|REST| FAPI[Fraud & Forecast API]
+        FAPI -->|L9: Edge| GF[Ghost Firewall]
+        FAPI -->|L1/L4: Champion| ENS[Ensemble Model]
+        FAPI -->|L1: Challenger| GNN[GNN Ring Detection]
+        FAPI -->|L2: Agent| AG[Agentic AI Investigator]
+    end
+
+    subgraph "Storage & Monitoring"
+        FAPI -->|Store| PG[(PostgreSQL)]
+        FAPI -->|Archive| DL[(Delta Lake)]
+        PG --> GR[Grafana Dashboard]
+        FAPI -->|Alert| SL[Slack/Ops Alert]
+    end
 ```
-┌─────────────┐     ┌───────────┐     ┌──────────────────┐     ┌─────────────┐
-│ Order        │────▶│   Kafka   │────▶│  Spark Streaming │────▶│  PostgreSQL │
-│ Generator    │     │  Broker   │     │  + ML Inference  │     │  / AWS S3   │
-└─────────────┘     └───────────┘     └──────────────────┘     └──────┬──────┘
-                                               │                        │
-                                       ┌───────▼───────┐      ┌────────▼───────┐
-                                       │  FastAPI ML   │      │    Airflow     │
-                                       │  Server       │      │  Orchestrator  │
-                                       │  (Fraud/      │      │  (Batch Jobs / │
-                                       │   Forecast)   │      │   Retraining)  │
-                                       └───────────────┘      └────────┬───────┘
-                                                                        │
-                                                               ┌────────▼───────┐
-                                                               │    Grafana     │
-                                                               │   Dashboard    │
-                                                               └────────────────┘
-```
 
 ---
 
-## 🔧 Tech Stack
+## 🛡️ The 10-Layer Fraud Intelligence Shield
 
-| Layer | Technology |
-|-------|-----------|
-| Data Generation | Python (Faker library) |
-| Message Broker | Apache Kafka |
-| Stream Processing | Apache Spark Structured Streaming |
-| ML Models | Scikit-learn (Isolation Forest), Prophet / LSTM |
-| Model Serving | FastAPI |
-| Storage (Structured) | PostgreSQL |
-| Storage (Raw/Archive) | AWS S3 + Delta Lake |
-| Orchestration | Apache Airflow |
-| Visualization | Grafana |
-| Containerization | Docker + Docker Compose |
-| Model Registry | MLflow |
+This project implements a state-of-the-art security roadmap:
+
+| Layer | Component | Technology | Description |
+|-------|-----------|------------|-------------|
+| **L1** | **Ring Detection** | **GNN (PyTorch)** | Detects fraud rings by analyzing device/IP connection graphs. |
+| **L2** | **Agentic AI** | **LangGraph** | Borderline cases trigger an AI Investigator to research evidence. |
+| **L3** | **Feature Store** | **Redis** | <3ms lookup of user velocity and historical reputation. |
+| **L4** | **Demand Forecast** | **TFT (Deep Learning)** | Deep Learning Temporal Fusion Transformer for demand prediction. |
+| **L5** | **Shadow Testing** | **MLOps Pipeline** | Champion vs Challenger scoring to validate new models in production. |
+| **L6** | **Security** | **SHA-256 Hashing** | Real-time PII masking of IP addresses and User IDs in Spark. |
+| **L7** | **Data Guardian** | **Schema Guard** | Real-time validation; anomalous data is routed to a Dead Letter Queue. |
+| **L8** | **Ops Alerting** | **Webhooks** | Automated Slack/System alerts for High-Risk fraud triggers. |
+| **L9** | **Ghost Firewall** | **Auto-Blocking** | Real-time IP blacklisting for critical threats in Redis. |
+| **L10** | **Precision Attribution** | **SHAP/Attribution** | Identifies the top 3 drivers for every fraud decision. |
 
 ---
 
 ## 📂 Project Structure
 
-```
-realtime-Safe-Shop-pipeline/
-│
-├── producer/                    # Generates & sends fake orders to Kafka
-├── kafka/                       # Kafka configuration & topic setup
-├── spark/                       # Spark streaming & transformations
-├── ml/
-│   ├── train/                   # Model training scripts
-│   ├── serve/                   # FastAPI inference server
-│   └── models/                  # Saved model files (.pkl)
-├── storage/                     # PostgreSQL & S3 writers
-├── airflow/
-│   └── dags/                    # Pipeline, forecast & retraining DAGs
-├── dashboard/                   # Grafana configs & SQL queries
-├── tests/                       # Unit & integration tests
-├── docker/                      # Dockerfiles & docker-compose
-├── docs/                        # Architecture diagram & setup guide
-├── requirements.txt
-├── .env
-└── README.md
-```
-
----
-
-## 🧠 Fraud Intelligence System (Real-Time)
-
-We have upgraded from a simple Isolation Forest to a State-of-the-Art **4-Layer Fraud Roadmap**:
-
-| Layer | Component | Technology | Description | Status |
-|-------|-----------|------------|-------------|--------|
-| **L1** | **Ring Detection** | GNN (GraphSAGE) | Detects fraud rings by connecting orders sharing IP/Device. | ✅ 100% |
-| **L2** | **Agentic AI** | LangGraph | Borderline cases trigger an AI Investigator for evidence research. | ✅ 100% |
-| **L3** | **Feature Store** | Redis | sub-3ms lookup of user reputation and real-time velocity. | ✅ 100% |
-| **L4** | **Demand Forecast** | **TFT (Transformer)** | Upgraded Prophet to Deep Learning Temporal Fusion Transformer. | ✅ 100% |
-| **L5** | **MLOps & A/B** | **Shadow Testing** | Real-time Challenger vs Champion scoring & Drift detection. | ✅ 100% |
-| **L6** | **Security & Compliance** | **SHA-256 Hashing** | Integrated PII masking and Secret Manager for GDPR readiness. | ✅ 100% |
-| **L7** | **Data Guardian** | **Dead Letter Queue** | Real-time schema enforcement and anomalous data routing. | ✅ 100% |
-| **L8** | **Ops Alerting** | **Slack/Webhook** | Real-time notifications for CRITICAL fraud rings. | ✅ 100% |
-| **L9** | **Ghost Firewall** | **Auto-Blocking** | Real-time IP blacklisting for CRITICAL threats. | ✅ 100% |
-| **L10** | **Precision Tackling** | **Idempotency** | Exactly-once event processing and local feature attribution. | ✅ 100% |
-
-### Prediction Workflow (Final v10.0):
-1. **Defend**: **Ghost Firewall (L9)** checks for blacklisted IPs.
-2. **Precision**: **Idempotency (L10)** checks Redis for previously tackled events to prevent double-processing.
-3. **Ingest**: Valid requests hit Spark, which triggers the **Data Guardian (L7)**.
-4. **Filter**: Valid data proceeds; Anomalous data is routed to the **DLQ (L7)**.
-5. **Inference**: FastAPI enriches the order with **L3 (Redis)** features.
-6. **Score**: Dual-scoring with **L1+L4 Ensemble** and **L1 GNN** in Shadow mode.
-7. **Investigate**: If borderline, **L2 (Agentic AI)** performs LangGraph research.
-8. **Analyze**: **Layer 10** identifies the top 3 drivers (Attribution) for the final report.
-9. **Strike & Alert**: If **CRITICAL**, **Ghost Firewall (L9)** blacklists the IP and **Alert Bot (L8)** notifies the team.
-
----
-
-## 📊 Dashboard Metrics (Grafana)
-
-- ✅ Live order count (per minute)
-- ✅ Revenue by region (real-time)
-- ✅ Fraud alerts feed
-- ✅ Top products by order volume
-- ✅ Demand forecast chart (next 6 hours)
-
----
-
-## 👥 Stakeholder Impact
-
-| Data Team | Clean, unified, reliable pipeline replacing data silos |
-|------------|---------|
-
----
-
-## 🛡️ The 9-Layer Fraud Intelligence Shield
-
-```mermaid
-graph TD
-    A[Order Event] -->|1. Ghost Firewall| B{L9: Blocked?}
-    B -->|Yes| C[403 Forbidden]
-    B -->|No| D[2. Ingest: Kafka]
-    D --> E[3. Clean: Data Guardian]
-    E -->|Rejected| F[Dead Letter Queue]
-    E -->|Valid| G[4. Enrich: Redis Feature Store]
-    G --> H[5. Score: Ensemble + GNN]
-    H -->|Borderline| I[6. Investigate: Agentic AI]
-    I --> J{Decision}
-    J -->|Critical Fraud| K[7. Strike: Ghost Firewall]
-    J -->|Alert| L[8. Notify: Ops Alert Bot]
-    H --> M[9. Forecast: TFT Demand Model]
-    M --> N[(PostgreSQL Warehouse)]
+```text
+.
+├── airflow/                    # Airflow DAGs for forecasting & retraining
+├── config/                     # Shared configurations (Secrets, etc.)
+├── dashboard/                  # Grafana dashboards & SQL schemas
+├── docker/                     # Docker Compose & container definitions
+├── kafka/                      # Kafka topic setup & config
+├── ml/                         # The Intelligence Engine
+│   ├── agents/                 # L2: Agentic AI (LangGraph)
+│   ├── mlops/                  # L5: Shadow testing & Drift detection
+│   ├── models/                 # Serialized model artifacts (.pkl, .pt)
+│   ├── ops/                    # L8/L9: Alerts & Ghost Firewall
+│   ├── serve/                  # FastAPI inference server
+│   └── train/                  # Model training (Ensemble, GNN, TFT)
+├── producer/                   # Synthetic order generator (Faker)
+├── scripts/                    # System initialization & utility scripts
+├── spark/                      # Spark Structured Streaming logic
+├── storage/                    # Database init & Feature Store setup
+└── tests/                      # Integration & Unit tests
 ```
 
 ---
 
-## 🛠️ Market Integration API
+## 🚀 Quickstart
 
-### `POST /predict`
-The primary endpoint for fraud intelligence.
-- **Security**: Requires `X-API-KEY`.
-- **Latency Target**: 50ms - 200ms (depending on Layer 2 triggers).
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `order_id` | string | Unique transaction ID |
-| `order_amount` | float | Total value in USD |
-| `ip_address` | string | Origin IPv4/IPv6 |
-
-### `POST /forecast`
-Predicts category-level demand for the next 24 hours.
-- **Model**: Temporal Fusion Transformer (TFT).
-
----
-
-## 🚀 Production Quickstart (Day 1)
-
-1. **Environmental Audit**:
-   Run the system check to verify Kafka, Redis, and Postgres are active:
-   ```bash
-   python scripts/init_system.py
-   ```
-
-2. **Start the Intelligence API**:
-   ```bash
-   cd ml/serve && uvicorn app:app --host 0.0.0.0 --port 8000
-   ```
-
-3. **Deploy Spark Stream on Databricks**:
-   Refer to the [databricks_migration_guide.md](./databricks_migration_guide.md).
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Docker & Docker Compose
-- Python 3.9+
-- AWS Account (for S3, optional)
-
-### Run Locally
-
+### 1. Environment Setup
+Clone the repo and initialize environment variables:
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/realtime-Safe-Shop-pipeline.git
-cd realtime-Safe-Shop-pipeline
-
-# Set up environment variables
+git clone https://github.com/ankushsingh003/Fake-Order-E-COMMERCE.git
+cd Fake-Order-E-COMMERCE
 cp .env.example .env
+```
 
-# Start all services (Kafka, Spark, PostgreSQL, Airflow)
-docker-compose up -d
+### 2. Launch Infrastructure
+Start the Kafka, Redis, Postgres, and Spark cluster:
+```bash
+docker-compose -f docker/docker-compose.yml up -d
+```
 
-# Start the order producer
+### 3. Initialize Databases
+Run the setup scripts to prepare PostgreSQL and the Redis Feature Store:
+```bash
+python scripts/init_system.py
+```
+
+### 4. Start the Intelligence API
+```bash
+cd ml/serve
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+### 5. Start the Data Pipeline
+In a new terminal, start the Spark Streaming processor:
+```bash
+python spark/spark_processor.py
+```
+
+### 6. Generate Live Orders
+```bash
 python producer/order_producer.py
-
-# Start the ML serving API
-uvicorn ml/serve/app:app --reload --port 8000
-
-# Access Grafana dashboard
-open http://localhost:3000
 ```
 
 ---
 
-## 📈 Skills Demonstrated
+## 📊 Skills Demonstrated
 
-`Apache Kafka` `Apache Spark` `PySpark` `Apache Airflow` `FastAPI` `Scikit-learn` `Prophet` `PostgreSQL` `AWS S3` `Delta Lake` `MLflow` `Docker` `Grafana` `ETL` `Real-Time Processing` `MLOps`
+- **Streaming**: Apache Kafka, Spark Structured Streaming, PySpark.
+- **MLOps**: MLflow, Shadow Deployment, Drift Detection, Feature Stores (Redis).
+- **Deep Learning**: PyTorch (GNN), PyTorch Forecasting (TFT).
+- **Agentic AI**: LangGraph, LLM-based investigation.
+- **Data Engineering**: PostgreSQL, Delta Lake, Airflow, Docker.
+- **Observability**: Grafana, Prometheus, Structured Logging.
 
 ---
 
 ## 🙋 Author
 
-**Your Name**
-- LinkedIn: [linkedin.com/in/yourprofile](#)
-- GitHub: [github.com/yourusername](#)
+**Ankush Kumar Singh**
+- GitHub: [@ankushsingh003](https://github.com/ankushsingh003)
+- LinkedIn: [Ankush Kumar Singh](https://www.linkedin.com/in/ankushsingh003/)
 
 ---
 
