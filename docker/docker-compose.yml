@@ -114,6 +114,9 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       # Auto-provision the PostgreSQL datasource on startup
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-ecommerce_orders}
     volumes:
       - grafana_data:/var/lib/grafana
       - ../dashboard/grafana_provisioning:/etc/grafana/provisioning

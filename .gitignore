@@ -47,6 +47,7 @@ venv.bak/
 !readme.md
 !order_schema.json
 !grafana_config.json
+!dashboard/grafana_provisioning/dashboards/*.json
 /storage/data/
 /kafka/data/
 /spark/data/

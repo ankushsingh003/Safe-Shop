@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: SafeShop Dashboards
+    orgId: 1
+    folder: SafeShop
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      

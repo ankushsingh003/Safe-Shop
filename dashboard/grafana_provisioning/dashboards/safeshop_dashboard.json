@@ -1,0 +1,263 @@
+{
+  "id": null,
+  "uid": "safeshop-main",
+  "title": "SafeShop — Real-Time Order Analytics",
+  "description": "Live order pipeline: fraud detection, demand forecast, revenue, and alerts",
+  "tags": ["safeshop", "fraud", "realtime"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "📦 Live Orders Per Minute",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('minute', timestamp) AS time, count(*) AS \"Orders\" FROM processed_orders WHERE timestamp > NOW() - INTERVAL '1 hour' GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15 }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "💰 Revenue by Category (Last 24h)",
+      "type": "barchart",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT category, sum(amount) AS \"Total Revenue\" FROM processed_orders WHERE timestamp > NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 2 DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "currencyUSD"
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "🚨 Fraud Alerts Feed (Latest 10)",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 8, "w": 14, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT timestamp, order_id, user_id, amount, orders_per_user_1m, fraud_score, risk_level, reasoning FROM processed_orders WHERE is_fraud = TRUE ORDER BY timestamp DESC LIMIT 10",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "displayMode": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "risk_level" },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "CRITICAL": { "color": "red", "index": 0 } } },
+                  { "type": "value", "options": { "HIGH": { "color": "orange", "index": 1 } } },
+                  { "type": "value", "options": { "LOW": { "color": "green", "index": 2 } } }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "fraud_score" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "gradient-gauge" },
+              { "id": "min", "value": 0 },
+              { "id": "max", "value": 1 },
+              { "id": "color", "value": { "mode": "continuous-RdYlGr" } }
+            ]
+          }
+        ]
+      },
+      "options": { "sortBy": [{ "displayName": "timestamp", "desc": true }] }
+    },
+    {
+      "id": 4,
+      "title": "🏆 Top 5 Products by Volume (Last 6h)",
+      "type": "piechart",
+      "gridPos": { "x": 14, "y": 8, "w": 10, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT product_name, count(*) AS volume FROM processed_orders WHERE timestamp > NOW() - INTERVAL '6 hours' GROUP BY 1 ORDER BY 2 DESC LIMIT 5",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      },
+      "options": {
+        "pieType": "donut",
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }
+      }
+    },
+    {
+      "id": 5,
+      "title": "📈 Demand Forecast vs Actuals",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 9 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('hour', timestamp) AS time, count(*) AS \"Actual Orders\" FROM processed_orders WHERE timestamp > NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT forecast_time AS time, predicted_orders AS \"Forecasted Orders\" FROM demand_forecast WHERE forecast_time > NOW() - INTERVAL '24 hours' ORDER BY 1",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Forecasted Orders" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 5] } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "🛡️ Fraud Rate % (Last 1h)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 25, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT round(100.0 * sum(CASE WHEN is_fraud THEN 1 ELSE 0 END) / NULLIF(count(*), 0), 2) AS \"Fraud Rate %\" FROM processed_orders WHERE timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 15 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" }
+    },
+    {
+      "id": 7,
+      "title": "📊 Total Orders (Last 1h)",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 25, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT count(*) AS \"Total Orders\" FROM processed_orders WHERE timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 8,
+      "title": "🚫 Fraudulent Orders (Last 1h)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 25, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT count(*) AS \"Fraud Orders\" FROM processed_orders WHERE is_fraud = TRUE AND timestamp > NOW() - INTERVAL '1 hour'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 9,
+      "title": "💵 Total Revenue (Last 24h)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 25, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "${DS_SAFESHOP-POSTGRESQL}" },
+      "targets": [
+        {
+          "rawSql": "SELECT round(sum(amount)::numeric, 2) AS \"Total Revenue\" FROM processed_orders WHERE timestamp > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] }
+}
+
