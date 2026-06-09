@@ -66,6 +66,9 @@ gcloud run deploy safeshop-ml-api `
   --platform managed `
   --region us-central1 `
   --allow-unauthenticated `
+  --memory 2Gi `
+  --cpu 2 `
+  --timeout 120 `
   --set-env-vars=$envVarString
 
 if ($LASTEXITCODE -ne 0) {
