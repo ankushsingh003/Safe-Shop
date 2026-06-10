@@ -1,0 +1,35 @@
+
+name: safeshop
+version: '1.0.0'
+config-version: 2
+
+profile: safeshop
+
+# Where dbt looks for models
+model-paths:      ["models"]
+test-paths:       ["tests"]
+macro-paths:      ["macros"]
+seed-paths:       ["seeds"]
+
+target-path:      "target"
+clean-targets:    ["target", "dbt_packages"]
+
+# Model configurations by folder
+models:
+  safeshop:
+    staging:
+      +materialized: view        # staging = views (lightweight, always fresh)
+      +schema: staging
+    marts:
+      core:
+        +materialized: table     # core facts = tables (fast queries)
+        +schema: marts
+      fraud:
+        +materialized: table     # fraud tables = tables (analysts query often)
+        +schema: marts
+
+# Global variables accessible in all models
+vars:
+  lookback_days: 30              # how far back to analyze fraud trends
+  high_value_threshold: 1000     # orders above this are "high value"
+  fraud_score_threshold: 0.5     # above this = fraud
