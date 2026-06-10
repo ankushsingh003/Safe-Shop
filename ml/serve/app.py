@@ -144,13 +144,15 @@ async def startup_event():
     try:
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         redis_client.ping()
-        logger.info("✅ Connected to Redis Feature Store")
-        
+        logger.info("Connected to Redis Feature Store")
+
         global firewall
         firewall = GhostFirewall(redis_client=redis_client)
-        logger.info("✅ Ghost Firewall (Layer 9) active")
+        logger.info("Ghost Firewall (Layer 9) active")
     except Exception as e:
-        logger.warning(f"⚠️ Redis connection failed: {e}. Running without real-time features.")
+        logger.warning(f"Redis connection failed: {e}. Running without real-time features.")
+        redis_client = None  # explicitly reset so if-checks correctly skip Redis operations
+        firewall = None
 
 # --------------------------------------------------------------------------
 # DATA MODELS
