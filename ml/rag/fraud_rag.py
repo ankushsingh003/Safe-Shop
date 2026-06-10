@@ -24,6 +24,13 @@ Environment variables required:
   OPENAI_API_KEY=sk-...   ← same key used by fraud_investigator.py
 """
 
+# --- NumPy 2.x Compatibility Patch for chromadb ---
+import numpy as np
+if not hasattr(np, "float_"):
+    np.float_ = np.float64
+if not hasattr(np, "int_"):
+    np.int_ = np.int64
+
 import os
 import json
 import logging

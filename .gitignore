@@ -53,3 +53,5 @@ venv.bak/
 /spark/data/
 mlflow.db
 mlruns/
+pip_cache/
+
