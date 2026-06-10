@@ -47,6 +47,7 @@ from pytorch_forecasting import TemporalFusionTransformer
 from ml.agents.fraud_investigator import fraud_investigator
 from ml.ops.alerts import alert_bot
 from ml.ops.firewall import GhostFirewall
+from ml.rag.fraud_rag import store_fraud_case, answer_fraud_query, get_rag_stats
 
 # Setup Structured Logging
 logHandler = logging.StreamHandler()
@@ -144,15 +145,13 @@ async def startup_event():
     try:
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         redis_client.ping()
-        logger.info("Connected to Redis Feature Store")
-
+        logger.info("✅ Connected to Redis Feature Store")
+        
         global firewall
         firewall = GhostFirewall(redis_client=redis_client)
-        logger.info("Ghost Firewall (Layer 9) active")
+        logger.info("✅ Ghost Firewall (Layer 9) active")
     except Exception as e:
-        logger.warning(f"Redis connection failed: {e}. Running without real-time features.")
-        redis_client = None  # explicitly reset so if-checks correctly skip Redis operations
-        firewall = None
+        logger.warning(f"⚠️ Redis connection failed: {e}. Running without real-time features.")
 
 # --------------------------------------------------------------------------
 # DATA MODELS
@@ -295,9 +294,43 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
         try:
             agent_result = fraud_investigator.invoke(agent_input)
             reasoning = agent_result.get("reasoning", "Agent investigation complete.")
-            if agent_result["decision"] == "FINAL_BLOCK":
+            agent_decision = agent_result.get("decision", "HUMAN_REVIEW")
+            agent_evidence = agent_result.get("evidence", [])
+
+            if agent_decision == "FINAL_BLOCK":
                 is_fraud = True
                 FRAUD_COUNTER.inc()
+
+            # ── RAG: Store investigation in ChromaDB ──────────────────────
+            fraud_pattern = "ANOMALY"
+            if order.location_mismatch and order.orders_per_user_last_minute > 5:
+                fraud_pattern = "COORDINATED_ATTACK"
+            elif order.location_mismatch and order.order_amount > 1000:
+                fraud_pattern = "STOLEN_CARD"
+            elif order.orders_per_user_last_minute > 10:
+                fraud_pattern = "BOT_ACTIVITY"
+            elif order.order_amount > 1000 and (datetime.now().hour < 6):
+                fraud_pattern = "ACCOUNT_TAKEOVER"
+            elif order.location_mismatch:
+                fraud_pattern = "LOCATION_FRAUD"
+
+            background_tasks.add_task(
+                store_fraud_case,
+                order_id=order.order_id,
+                order_amount=order.order_amount,
+                category=getattr(order, "category", "Unknown"),
+                device_type=order.device_type,
+                location_mismatch=bool(order.location_mismatch),
+                orders_per_user_1m=order.orders_per_user_last_minute,
+                champion_score=champion_score,
+                gnn_score=challenger_score,
+                decision=agent_decision,
+                reasoning=reasoning,
+                evidence=agent_evidence,
+                risk_level=risk_level,
+                fraud_pattern=fraud_pattern,
+            )
+
         except Exception as e:
             logger.error("Agent investigation failed", extra={"order_id": order.order_id, "error": str(e)})
 
@@ -367,15 +400,23 @@ async def forecast(req: ForecastRequest, api_key: str = Depends(get_api_key)):
 
 @app.get("/health")
 async def health():
+    rag_info = get_rag_stats()
     return {
         "status": "ok",
+        "version": "v5.0-rag",
         "layers": {
-            "L1_Ensemble": bool(model_artifacts),
-            "L1_GNN": gnn_model is not None,
-            "L2_Agentic": True,
-            "L3_Redis": redis_client is not None,
+            "L1_Ensemble":    bool(model_artifacts),
+            "L1_GNN":         gnn_model is not None,
+            "L2_Agentic_AI":  True,
+            "L3_Redis":       redis_client is not None,
             "L4_TFT_Forecast": True,
-            "L5_Shadow_AB": True
+            "L5_Shadow_AB":   True,
+            "L6_RAG_ChromaDB": rag_info.get("status") == "healthy",
+        },
+        "rag": {
+            "cases_stored":   rag_info.get("total_cases_stored", 0),
+            "embeddings":     rag_info.get("embeddings_model", "unknown"),
+            "status":         rag_info.get("status", "unknown"),
         }
     }
 
@@ -383,3 +424,85 @@ if __name__ == "__main__":
     import uvicorn
     # In production, run this alongside the serving app
     uvicorn.run(app, host="0.0.0.0", port=8001)  # nosec B104
+
+
+# --------------------------------------------------------------------------
+# RAG DATA MODELS  (added for POST /ask endpoint)
+# --------------------------------------------------------------------------
+class AskRequest(BaseModel):
+    question: str = Field(
+        ...,
+        example="Show all cases where velocity triggered a block",
+        description="Natural language question about past fraud investigations"
+    )
+    top_k: int = Field(default=5, ge=1, le=20, description="Number of similar cases to retrieve")
+    filter_decision:   Optional[str] = Field(default=None, description="FINAL_BLOCK | FINAL_APPROVE | HUMAN_REVIEW")
+    filter_risk_level: Optional[str] = Field(default=None, description="CRITICAL | HIGH | LOW")
+    filter_pattern:    Optional[str] = Field(default=None, description="BOT_ACTIVITY | STOLEN_CARD | COORDINATED_ATTACK | etc.")
+
+class AskResponse(BaseModel):
+    question:        str
+    answer:          str
+    cases_retrieved: int
+    source_cases:    List[Dict[str, Any]]
+    rag_status:      str
+
+
+# --------------------------------------------------------------------------
+# POST /ask  — RAG Fraud Intelligence Query
+# --------------------------------------------------------------------------
+@app.post("/ask", response_model=AskResponse, tags=["RAG Intelligence"])
+async def ask_fraud_intelligence(
+    req: AskRequest,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    **RAG-powered Fraud Intelligence Query**
+
+    Ask natural language questions about past fraud investigations
+    stored in ChromaDB. The system retrieves semantically similar
+    cases and synthesizes an answer using GPT-4o-mini.
+
+    **Example questions:**
+    - "Show all cases where velocity triggered a block"
+    - "Which fraud pattern is most common in Electronics?"
+    - "Find cases where the agent approved despite a score above 0.6"
+    - "What reasoning did the agent use for STOLEN_CARD cases?"
+    - "Which orders had both location mismatch and high velocity?"
+
+    Cases are stored automatically after every LangGraph investigation.
+    """
+    try:
+        result = answer_fraud_query(
+            question=req.question,
+            top_k=req.top_k,
+            filter_decision=req.filter_decision,
+            filter_risk_level=req.filter_risk_level,
+            filter_pattern=req.filter_pattern,
+        )
+
+        logger.info(f"RAG query answered | cases_retrieved={result['cases_retrieved']} | question='{req.question[:60]}'")
+
+        return AskResponse(
+            question=req.question,
+            answer=result["answer"],
+            cases_retrieved=result["cases_retrieved"],
+            source_cases=result["source_cases"],
+            rag_status="ok"
+        )
+
+    except Exception as e:
+        logger.error(f"RAG query failed: {e}")
+        raise HTTPException(status_code=500, detail=f"RAG query failed: {str(e)}")
+
+
+# --------------------------------------------------------------------------
+# GET /rag/stats  — ChromaDB Collection Stats
+# --------------------------------------------------------------------------
+@app.get("/rag/stats", tags=["RAG Intelligence"])
+async def rag_stats(api_key: str = Depends(get_api_key)):
+    """
+    Returns stats about the ChromaDB fraud knowledge base:
+    total cases stored, collection name, embedding model used.
+    """
+    return get_rag_stats()
