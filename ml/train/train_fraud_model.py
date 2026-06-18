@@ -444,14 +444,16 @@ def train():
 
     target_col = "Is Fraudulent" if "Is Fraudulent" in df.columns else "is_fraud"
 
-    # Train/test split (stratified) on raw data to prevent leakage!
-    print("\n[2/6] Splitting and engineering features...")
-    df_train, df_test = train_test_split(
-        df,
-        test_size=0.2,
-        stratify=df[target_col].astype(int),
-        random_state=RANDOM_STATE,
-    )
+    # Chronological sort for a rigorous, time-based split
+    date_col = "Transaction Date" if "Transaction Date" in df.columns else "order_timestamp"
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.sort_values(date_col).reset_index(drop=True)
+
+    # Train/test split (chronological holdout) to simulate production deployment
+    print("\n[2/6] Splitting and engineering features (Time-based split)...")
+    split_idx = int(len(df) * 0.8)
+    df_train = df.iloc[:split_idx].reset_index(drop=True)
+    df_test = df.iloc[split_idx:].reset_index(drop=True)
 
     # Engineer features on train set
     df_train_eng, encoders, user_stats, known_fraud_addresses = engineer_features(df_train, fit=True)
