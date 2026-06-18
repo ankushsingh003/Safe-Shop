@@ -54,4 +54,5 @@ venv.bak/
 mlflow.db
 mlruns/
 pip_cache/
+reports/
 
