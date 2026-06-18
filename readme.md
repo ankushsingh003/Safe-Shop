@@ -80,6 +80,18 @@ This project implements a state-of-the-art security roadmap:
 
 ---
 
+## ⚡ Production-Grade MLOps & Model Hardening
+
+The machine learning architecture has been hardened to eliminate data leakage and support real-world validation:
+
+- **Chronological Split & Kaggle Benchmark**: Transitioned from synthetic validation to the **1.5M+ row Kaggle "Fraudulent E-Commerce Transactions" dataset**. Instead of a random split (which leaks future behavior), we enforce a chronological holdout split (80% train / 20% test).
+- **Zero-Leakage Feature Store**: Training statistics, category encoders, and historical fraud sets are calculated solely on the training partition and serialized. At serve-time, the FastAPI prediction loop fetches running user statistics (e.g. `avg_order_value_usd`) from **Redis (Layer 3)** to compute features like `amount_zscore_user` on a single-row request without look-ahead bias.
+- **Business Cost-Aware Threshold Optimization**: Instead of maximizing F1 (which weights False Positives and False Negatives equally), the decision threshold is dynamically tuned to minimize business loss ($80 per False Positive customer friction vs. transaction amount + $20 chargeback fee per False Negative).
+- **Dynamic GNN Graph Builder**: Rather than passing a single detached node to the GraphSAGE model, a background worker (`update_gnn_graph_and_scores`) retrieves the last 50 transactions from Redis, constructs a real connected graph (orders sharing the same IP or User ID), runs GNN inference, and caches scores back to Redis for low-latency A/B testing.
+- **Factual Drift Monitoring**: Upgraded from dummy drift logs to a production-grade comparison. During training, a 5,000-row feature sample (`reference_data.csv`) and a summary statistics JSON are generated. In production, live inferences are logged to `production_predictions.csv` and analyzed via **Evidently (Layer 5)** using Kolmogorov-Smirnov and Wasserstein distance tests to generate interactive HTML reports.
+
+---
+
 ## 📂 Project Structure
 
 ```text
