@@ -411,7 +411,7 @@ def build_ensemble():
 
 
 # --------------------------------------------─
-# STEP 4: FIND OPTIMAL THRESHOLD
+# STEP 4: FIND OPTIMAL THRESHOLD (F-score vs Financial Cost)
 # --------------------------------------------─
 def find_optimal_threshold(y_true, y_proba, beta: float = 1.0) -> float:
     """
@@ -424,8 +424,48 @@ def find_optimal_threshold(y_true, y_proba, beta: float = 1.0) -> float:
     )
     best_idx = np.argmax(f_scores)
     best_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
-    print(f"\n[DONE] Optimal threshold (F{beta}): {best_threshold:.4f}")
+    print(f"\n[F1 Optimize] Optimal threshold (F{beta}): {best_threshold:.4f}")
     print(f"   Precision: {precision[best_idx]:.4f} | Recall: {recall[best_idx]:.4f}")
+    return float(best_threshold)
+
+
+def find_optimal_threshold_by_cost(
+    y_true, 
+    y_proba, 
+    amounts, 
+    cost_fp: float = 15.0, 
+    chargeback_fee: float = 20.0
+) -> float:
+    """
+    Finds the decision threshold that minimizes total business cost.
+    - Cost of False Positive (FP): $15 administrative cost & customer friction
+    - Cost of False Negative (FN): lost order amount + $20 chargeback fee
+    """
+    thresholds = np.linspace(0.0001, 0.9999, 1000)
+    best_threshold = 0.5
+    min_cost = float('inf')
+    
+    y_true_arr = np.array(y_true)
+    amounts_arr = np.array(amounts)
+    
+    for threshold in thresholds:
+        y_pred = (y_proba >= threshold).astype(int)
+        
+        # FP: predicted fraud (1) but actually legit (0)
+        fps = (y_pred == 1) & (y_true_arr == 0)
+        cost_of_fps = fps.sum() * cost_fp
+        
+        # FN: predicted legit (0) but actually fraud (1)
+        fns = (y_pred == 0) & (y_true_arr == 1)
+        cost_of_fns = np.sum(amounts_arr[fns] + chargeback_fee)
+        
+        total_cost = cost_of_fps + cost_of_fns
+        if total_cost < min_cost:
+            min_cost = total_cost
+            best_threshold = threshold
+            
+    print(f"[Cost Optimize] Optimal threshold: {best_threshold:.4f}")
+    print(f"   Total Business Cost at this threshold: ${min_cost:,.2f}")
     return float(best_threshold)
 
 
@@ -513,7 +553,20 @@ def train():
         pr_auc  = average_precision_score(y_test, y_proba)
         roc_auc = roc_auc_score(y_test, y_proba)
 
-        optimal_threshold = find_optimal_threshold(y_test, y_proba, beta=1.0)
+        print("\n[Threshold Optimization]")
+        f1_thresh = find_optimal_threshold(y_test, y_proba, beta=1.0)
+        cost_thresh = find_optimal_threshold_by_cost(
+            y_test, 
+            y_proba, 
+            X_test["order_amount"].values,
+            cost_fp=80.0,
+            chargeback_fee=20.0
+        )
+        
+        # Select cost-optimized threshold for production to minimize financial loss
+        optimal_threshold = cost_thresh
+        print(f"      Selected Production Threshold: {optimal_threshold:.4f} (Cost-Optimized)")
+
         y_pred = (y_proba >= optimal_threshold).astype(int)
 
         f1  = f1_score(y_test, y_pred)
