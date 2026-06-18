@@ -190,12 +190,6 @@ def engineer_features(
         df["order_hour"] = 12
         df["is_late_night"] = 0
 
-    # 6. Multiple payment attempts (if available, else 0)
-    df["payment_attempts"] = df.get("payment_attempts", pd.Series(
-        np.random.poisson(1.1, len(df)), index=df.index
-    ))
-    df["multi_payment_attempt"] = (df["payment_attempts"] > 1).astype(int)
-
     # 7. Cart-to-checkout time (very fast = bot signal)
     if "cart_to_checkout_seconds" in df.columns:
         df["fast_checkout"] = (df["cart_to_checkout_seconds"] < 10).astype(int)
@@ -219,11 +213,6 @@ def engineer_features(
     else:
         df["known_fraud_address"] = 0
 
-    # 10. IP risk score (from MaxMind / IPQualityScore if integrated, else proxy)
-    df["ip_risk_score"] = df.get("ip_risk_score", pd.Series(
-        np.random.beta(2, 8, len(df)), index=df.index
-    ))
-
     # 11. Velocity x amount interaction
     df["velocity_amount_interaction"] = (
         df["orders_per_user_last_minute"] * df["order_amount"]
@@ -243,18 +232,16 @@ FEATURE_COLS = [
     "orders_per_user_last_minute",
     "location_mismatch",
     "device_type_enc",
-    # New 12
+    # New 10
     "amount_zscore_user",
     "orders_per_user_last_hour",
     "amount_pct_rank",
     "is_new_user",
     "order_hour",
     "is_late_night",
-    "multi_payment_attempt",
     "fast_checkout",
     "is_high_value",
     "known_fraud_address",
-    "ip_risk_score",
     "velocity_amount_interaction",
     "location_highvalue_risk",
 ]

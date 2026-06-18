@@ -270,7 +270,6 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
 
     # Extract user stats from profile, falling back to safe defaults
     account_age = int(user_profile.get("account_age_days", 30))
-    ip_risk = float(user_profile.get("ip_risk_score", 0.1))
     user_mean = float(user_profile.get("avg_order_value_usd", order.order_amount))
     user_std = float(user_profile.get("std_order_value_usd", 1.0))
     orders_last_hour = int(user_profile.get("orders_last_hour", order.orders_per_user_last_minute * 4))
@@ -294,7 +293,6 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
         "Transaction Hour": datetime.utcnow().hour,
         "orders_per_user_last_minute": order.orders_per_user_last_minute,
         "orders_per_user_last_hour": orders_last_hour,
-        "ip_risk_score": ip_risk,
     }])
 
     # Engineer all 16 rich features using the encoders stored during training
