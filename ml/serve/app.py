@@ -213,6 +213,68 @@ def log_prediction_features(features_dict: dict):
     with open(log_file, mode='a', newline='') as f:
         df.to_csv(f, header=write_header, index=False)
 
+def update_gnn_graph_and_scores():
+    """Layer 5: Graph Builder and GNN Inference Task.
+    Retrieves recent orders from Redis, constructs a transaction graph based on
+    shared IP/User connections, runs the GNN, and caches the scores.
+    """
+    if not redis_client or not gnn_model:
+        return
+    try:
+        # Retrieve recent orders
+        orders_json = redis_client.lrange("recent_transactions", 0, -1)
+        if not orders_json:
+            return
+        
+        orders = [json.loads(o) for o in orders_json]
+        n_orders = len(orders)
+        if n_orders == 0:
+            return
+        
+        # Scale order amounts
+        amounts = [float(o["order_amount"]) for o in orders]
+        mean_amt = np.mean(amounts) if n_orders > 1 else 100.0
+        std_amt = np.std(amounts) if n_orders > 1 else 10.0
+        if std_amt == 0:
+            std_amt = 1.0
+        
+        x_list = [[(a - mean_amt) / std_amt] for a in amounts]
+        x = torch.tensor(x_list, dtype=torch.float)
+        
+        # Construct edges: connect nodes sharing IP address or user_id
+        edge_index_list = []
+        for i in range(n_orders):
+            for j in range(i + 1, n_orders):
+                shared_ip = (orders[i]["ip_address"] != "unknown" and 
+                             orders[i]["ip_address"] == orders[j]["ip_address"])
+                shared_user = (orders[i]["user_id"] == orders[j]["user_id"])
+                if shared_ip or shared_user:
+                    edge_index_list.append([i, j])
+                    edge_index_list.append([j, i])
+        
+        if len(edge_index_list) == 0:
+            edge_index = torch.empty((2, 0), dtype=torch.long)
+        else:
+            edge_index = torch.tensor(edge_index_list, dtype=torch.long).t().contiguous()
+            
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        x = x.to(device)
+        edge_index = edge_index.to(device)
+        
+        with torch.no_grad():
+            out = gnn_model(x, edge_index)
+            scores = torch.exp(out)[:, 1].cpu().numpy()
+            
+        # Write GNN scores to Redis
+        for i, order_dict in enumerate(orders):
+            redis_client.setex(
+                f"gnn_score:{order_dict['order_id']}",
+                3600,  # 1 hour TTL
+                str(float(scores[i]))
+            )
+    except Exception as e:
+        logger.warning(f"Failed GNN graph processing and scoring: {e}")
+
 def get_top_drivers(order_data: pd.DataFrame, ensemble_model, feature_cols):
     """Layer 10: Extracts the top 3 fraud triggers using basic attribution."""
     try:
@@ -312,7 +374,37 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
     champion_score = float(ensemble.predict_proba(X_sc)[0][1])
 
     # 2. CHALLENGER MODEL (L1 GNN) - Running in Shadow Mode
-    challenger_score = get_gnn_score(order.order_amount)
+    # Log current transaction details to Redis list of recent transactions for graph building
+    if redis_client:
+        try:
+            order_dict = {
+                "order_id": order.order_id,
+                "user_id": order.user_id,
+                "order_amount": order.order_amount,
+                "ip_address": order.ip_address,
+                "device_type": order.device_type,
+            }
+            redis_client.lpush("recent_transactions", json.dumps(order_dict))
+            redis_client.ltrim("recent_transactions", 0, 49)
+            background_tasks.add_task(update_gnn_graph_and_scores)
+        except Exception as e:
+            logger.warning(f"Failed to record transaction for GNN queue: {e}")
+
+    # Fetch cached GNN score from Redis or fallback to single-node evaluation
+    challenger_score = 0.5
+    if redis_client:
+        try:
+            cached_gnn = redis_client.get(f"gnn_score:{order.order_id}")
+            if cached_gnn:
+                challenger_score = float(cached_gnn)
+            else:
+                challenger_score = get_gnn_score(order.order_amount)
+        except Exception as e:
+            logger.warning(f"Error fetching GNN score from Redis: {e}")
+            challenger_score = get_gnn_score(order.order_amount)
+    else:
+        challenger_score = get_gnn_score(order.order_amount)
+
     background_tasks.add_task(log_shadow_ab, order.order_id, champion_score, challenger_score)
 
     # 3. FINAL DECISION LOGIC (Champion determines result)
