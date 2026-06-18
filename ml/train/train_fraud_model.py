@@ -616,11 +616,43 @@ def train():
         with open(scaler_path, "wb") as f:
             pickle.dump(scaler, f)
 
+        # Save reference training data (5000 samples) and summary statistics
+        import json
+        ref_df = df_train_eng[FEATURE_COLS + ["is_fraud"]].sample(
+            n=min(5000, len(df_train_eng)), 
+            random_state=42
+        )
+        ref_path = os.path.join(MODEL_OUTPUT_DIR, "reference_data.csv")
+        ref_df.to_csv(ref_path, index=False)
+        
+        # Calculate summary statistics: mean, std, min, max, 25%, 50%, 75%
+        stats = {}
+        for col in FEATURE_COLS + ["is_fraud"]:
+            col_series = df_train_eng[col].dropna()
+            if np.issubdtype(col_series.dtype, np.number):
+                stats[col] = {
+                    "mean": float(col_series.mean()),
+                    "std": float(col_series.std()),
+                    "min": float(col_series.min()),
+                    "max": float(col_series.max()),
+                    "quantile_25": float(col_series.quantile(0.25)),
+                    "quantile_50": float(col_series.quantile(0.5)),
+                    "quantile_75": float(col_series.quantile(0.75)),
+                }
+        
+        stats_path = os.path.join(MODEL_OUTPUT_DIR, "training_distribution_stats.json")
+        with open(stats_path, "w") as f:
+            json.dump(stats, f, indent=4)
+
         mlflow.log_artifact(model_path)
+        mlflow.log_artifact(ref_path)
+        mlflow.log_artifact(stats_path)
         mlflow.sklearn.log_model(ensemble, "ensemble_model")
 
         print(f"\n  [DONE] Model saved  -> {model_path}")
         print(f"  [DONE] Scaler saved -> {scaler_path}")
+        print(f"  [DONE] Drift reference data saved -> {ref_path}")
+        print(f"  [DONE] Drift distribution stats saved -> {stats_path}")
         print(f"\n  [FINAL] Final PR-AUC: {pr_auc:.4f}")
         print("=" * 60)
 
