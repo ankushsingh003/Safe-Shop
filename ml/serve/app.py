@@ -204,6 +204,15 @@ def log_shadow_ab(order_id, champion_score, challenger_score):
             round(abs(champion_score - challenger_score), 4)
         ])
 
+def log_prediction_features(features_dict: dict):
+    """Logs prediction features for drift detection (Layer 5)"""
+    log_file = "ml/models/production_predictions.csv"
+    os.makedirs("ml/models", exist_ok=True)
+    write_header = not os.path.exists(log_file)
+    df = pd.DataFrame([features_dict])
+    with open(log_file, mode='a', newline='') as f:
+        df.to_csv(f, header=write_header, index=False)
+
 def get_top_drivers(order_data: pd.DataFrame, ensemble_model, feature_cols):
     """Layer 10: Extracts the top 3 fraud triggers using basic attribution."""
     try:
@@ -314,6 +323,14 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
     
     if is_fraud:
         FRAUD_COUNTER.inc()
+    
+    # Log prediction features for drift detection
+    try:
+        log_feat = {col: float(input_data[col].iloc[0]) for col in feat_cols}
+        log_feat["is_fraud"] = int(is_fraud)
+        background_tasks.add_task(log_prediction_features, log_feat)
+    except Exception as e:
+        logger.warning(f"Failed to queue drift prediction logs: {e}")
     
     investigator_involved = False
     reasoning = "Automated model scoring (Champion Ensemble)."
