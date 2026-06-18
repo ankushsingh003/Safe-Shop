@@ -48,6 +48,7 @@ from ml.agents.fraud_investigator import fraud_investigator
 from ml.ops.alerts import alert_bot
 from ml.ops.firewall import GhostFirewall
 from ml.rag.fraud_rag import store_fraud_case, answer_fraud_query, get_rag_stats
+from ml.train.train_fraud_model import engineer_features
 
 # Setup Structured Logging
 logHandler = logging.StreamHandler()
@@ -250,11 +251,53 @@ async def predict(order: OrderRequest, background_tasks: BackgroundTasks, api_ke
         raise HTTPException(status_code=503, detail="Models not ready")
 
     # 1. CHAMPION MODEL (L4 Ensemble)
+    # Fetch user profile from Redis Feature Store if available to enrich real-time features
+    user_profile = {}
+    if redis_client:
+        try:
+            user_profile = redis_client.hgetall(f"user:{order.user_id}:profile") or {}
+        except Exception as e:
+            logger.warning(f"Failed to query Redis profile for user {order.user_id}: {e}")
+
+    # Extract user stats from profile, falling back to safe defaults
+    account_age = int(user_profile.get("account_age_days", 30))
+    ip_risk = float(user_profile.get("ip_risk_score", 0.1))
+    user_mean = float(user_profile.get("avg_order_value_usd", order.order_amount))
+    user_std = float(user_profile.get("std_order_value_usd", 1.0))
+    orders_last_hour = int(user_profile.get("orders_last_hour", order.orders_per_user_last_minute * 4))
+
+    # Construct single-row transaction dataframe matching the training data schema
+    raw_tx = pd.DataFrame([{
+        "Transaction ID": order.order_id,
+        "Customer ID": order.user_id,
+        "Transaction Amount": order.order_amount,
+        "Transaction Date": datetime.utcnow().isoformat(),
+        "Payment Method": "Credit Card",  # Default category
+        "Product Category": "Electronics", # Default category
+        "Quantity": 1,
+        "Customer Age": 35, # Default age
+        "Customer Location": "USA",
+        "Device Used": order.device_type,
+        "IP Address": order.ip_address,
+        "Shipping Address": "USA",
+        "Billing Address": "USA" if order.location_mismatch == 0 else "mismatch",
+        "Account Age Days": account_age,
+        "Transaction Hour": datetime.utcnow().hour,
+        "orders_per_user_last_minute": order.orders_per_user_last_minute,
+        "orders_per_user_last_hour": orders_last_hour,
+        "ip_risk_score": ip_risk,
+    }])
+
+    # Engineer all 16 rich features using the encoders stored during training
+    encoders = model_artifacts.get("encoders", {})
+    df_engineered, _ = engineer_features(raw_tx, encoders=encoders, fit=False)
+
+    # Inject actual Redis-backed historical user stats to avoid single-row bias
+    df_engineered["amount_zscore_user"] = (order.order_amount - user_mean) / user_std
+    df_engineered["amount_zscore_user"] = df_engineered["amount_zscore_user"].fillna(0.0)
+
     feat_cols = model_artifacts["feature_cols"]
-    input_data = pd.DataFrame([{c: 0 for c in feat_cols}])
-    input_data["order_amount"] = order.order_amount
-    input_data["orders_per_user_last_minute"] = order.orders_per_user_last_minute
-    input_data["location_mismatch"] = order.location_mismatch
+    input_data = df_engineered[feat_cols].fillna(0)
     
     scaler = model_artifacts["scaler"]
     ensemble = model_artifacts["ensemble_model"]
