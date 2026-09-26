@@ -47,25 +47,25 @@ export default function App() {
           Introducing Next-Gen Fraud Intelligence
         </div>
         
-        <h1 style={{ fontSize: "64px", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", maxWidth: "800px", marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "48px", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", maxWidth: "800px", marginBottom: "24px" }}>
           Securing Global E-Commerce with <span style={{ background: "linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899)", WebkitBackgroundClip: "text", color: "transparent" }}>Autonomous AI</span>.
         </h1>
         
-        <p style={{ fontSize: "18px", color: "var(--text-secondary)", maxWidth: "600px", lineHeight: 1.6, marginBottom: "48px" }}>
+        <p style={{ fontSize: "15px", color: "var(--text-secondary)", maxWidth: "600px", lineHeight: 1.6, marginBottom: "48px" }}>
           SafeShop is a leading e-commerce platform processing millions of transactions daily. Our Security Engineering team builds state-of-the-art ML pipelines, Graph Neural Networks, and Agentic AI to detect and neutralize fraud before it happens.
         </p>
 
         <div style={{ display: "flex", gap: "16px" }}>
           <button 
             onClick={() => setView("monitor")}
-            style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", color: "#fff", border: "none", padding: "16px 32px", borderRadius: "8px", fontSize: "16px", fontWeight: 600, cursor: "pointer", boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.4)", display: "flex", alignItems: "center", gap: "8px", transition: "transform 0.2s" }}
+            style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)", color: "#fff", border: "none", padding: "16px 32px", borderRadius: "8px", fontSize: "14px", fontWeight: 600, cursor: "pointer", boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.4)", display: "flex", alignItems: "center", gap: "8px", transition: "transform 0.2s" }}
             onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
             onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
           >
             Access SOC Monitoring <i className="ti ti-arrow-right"></i>
           </button>
           <button 
-            style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.1)", padding: "16px 32px", borderRadius: "8px", fontSize: "16px", fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }}
+            style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.1)", padding: "16px 32px", borderRadius: "8px", fontSize: "14px", fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }}
             onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
             onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
           >
@@ -76,15 +76,15 @@ export default function App() {
         {/* Stats Section */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "48px", marginTop: "80px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "60px", maxWidth: "900px", width: "100%" }}>
           <div>
-            <div style={{ fontSize: "36px", fontWeight: 800, color: "#fff", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>$4.2B+</div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: "#fff", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>$4.2B+</div>
             <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>GMV Protected Monthly</div>
           </div>
           <div>
-            <div style={{ fontSize: "36px", fontWeight: 800, color: "#fff", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>&lt;18ms</div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: "#fff", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>&lt;18ms</div>
             <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>P99 Inference Latency</div>
           </div>
           <div>
-            <div style={{ fontSize: "36px", fontWeight: 800, color: "#fff", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>99.9%</div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: "#fff", fontFamily: "var(--font-mono)", marginBottom: "8px" }}>99.9%</div>
             <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>Fraud Prevention Rate</div>
           </div>
         </div>
