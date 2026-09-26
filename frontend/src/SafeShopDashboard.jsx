@@ -1,4 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import SafeShopLogo from "./Logo";
+import LiveFeedView from "./views/LiveFeedView";
+import ThreatsView from "./views/ThreatsView";
+import AgentsView from "./views/AgentsView";
+import ModelMetricsView from "./views/ModelMetricsView";
+import ABTestingView from "./views/ABTestingView";
+import RAGKBView from "./views/RAGKBView";
+import DataLakeView from "./views/DataLakeView";
+import ReportsView from "./views/ReportsView";
+import SettingsModal from "./views/SettingsModal";
 import {
   LineChart, Line, AreaChart, Area,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -542,12 +552,10 @@ function TopBar({apiReachable,onRefresh}) {
   return (
     <div style={{height:50,background:"var(--bg-surface)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 18px",gap:14,flexShrink:0,position:"sticky",top:0,zIndex:100}}>
       <div style={{display:"flex",alignItems:"center",gap:9}}>
-        <div style={{width:28,height:28,borderRadius:7,background:"linear-gradient(135deg,#3b82f6,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 10px rgba(59,130,246,0.35)"}}>
-          <i className="ti ti-shield-bolt" style={{fontSize:15,color:"#fff"}}/>
-        </div>
+        <SafeShopLogo size={26} showText={false} />
         <div>
-          <p style={{fontSize:13,fontWeight:700,color:"var(--text-primary)",letterSpacing:"-0.01em"}}>SafeShop</p>
-          <p style={{fontSize:9,color:"var(--text-muted)",letterSpacing:"0.06em"}}>ML FRAUD INTELLIGENCE PLATFORM</p>
+          <p style={{fontSize:13,fontWeight:700,color:"#ffffff",letterSpacing:"-0.02em",fontFamily:"var(--font-sans)"}}>SafeShop<span style={{color:"#71717a",fontWeight:500}}>.ai</span></p>
+          <p style={{fontSize:8.5,color:"var(--text-muted)",letterSpacing:"0.08em",fontFamily:"var(--font-mono)"}}>ML FRAUD INTELLIGENCE PLATFORM</p>
         </div>
       </div>
       <div style={{width:1,height:26,background:"var(--border)",margin:"0 4px"}}/>
@@ -571,19 +579,19 @@ function TopBar({apiReachable,onRefresh}) {
 }
 
 /* ── LEFT SIDEBAR ───────────────────────────────────────────────────────────── */
-function Sidebar({orders}) {
+function Sidebar({orders, activeView, onSelect}) {
   const crit = orders.filter(o=>o.risk==="CRITICAL").length;
   const high = orders.filter(o=>o.risk==="HIGH").length;
   const navItems = [
-    {icon:"ti-layout-dashboard",label:"Dashboard",active:true},
-    {icon:"ti-activity",label:"Live Feed",badge:orders.length},
-    {icon:"ti-shield-x",label:"Threats",badge:crit||null,danger:true},
-    {icon:"ti-robot",label:"AI Agents"},
-    {icon:"ti-chart-dots",label:"Model Metrics"},
-    {icon:"ti-test-pipe",label:"A/B Testing"},
-    {icon:"ti-brain",label:"RAG KB"},
-    {icon:"ti-database",label:"Data Lake"},
-    {icon:"ti-report-analytics",label:"Reports"},
+    {icon:"ti-layout-dashboard",label:"Dashboard",key:'Dashboard'},
+    {icon:"ti-activity",label:"Live Feed",key:'Live Feed',badge:orders.length},
+    {icon:"ti-shield-x",label:"Threats",key:'Threats',badge:crit||null,danger:true},
+    {icon:"ti-robot",label:"AI Agents",key:'AI Agents'},
+    {icon:"ti-chart-dots",label:"Model Metrics",key:'Model Metrics'},
+    {icon:"ti-test-pipe",label:"A/B Testing",key:'A/B Testing'},
+    {icon:"ti-brain",label:"RAG KB",key:'RAG KB'},
+    {icon:"ti-database",label:"Data Lake",key:'Data Lake'},
+    {icon:"ti-report-analytics",label:"Reports",key:'Reports'},
   ];
   const layerList = [
     {id:"L1",label:"Ensemble + GNN",c:"#4ade80"},{id:"L2",label:"Agent (LangGraph)",c:"#4ade80"},
@@ -596,10 +604,10 @@ function Sidebar({orders}) {
       <div style={{padding:"6px 8px",borderBottom:"1px solid var(--border)"}}>
         <p style={{fontSize:8,color:"var(--text-muted)",letterSpacing:"0.1em",textTransform:"uppercase",padding:"7px 8px 4px"}}>Navigation</p>
         {navItems.map((item,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 8px",borderRadius:5,cursor:"pointer",background:item.active?"rgba(59,130,246,0.12)":"transparent",border:item.active?"1px solid rgba(59,130,246,0.2)":"1px solid transparent",marginBottom:1}}>
+          <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 8px",borderRadius:5,cursor:"pointer",background:activeView===item.key?"rgba(59,130,246,0.12)":"transparent",border:activeView===item.key?"1px solid rgba(59,130,246,0.2)":"1px solid transparent",marginBottom:1}} onClick={() => onSelect(item.key)}>
             <div style={{display:"flex",alignItems:"center",gap:7}}>
-              <i className={`ti ${item.icon}`} style={{fontSize:13,color:item.active?"#60a5fa":item.danger&&item.badge?"#f87171":"var(--text-muted)"}}/>
-              <span style={{fontSize:11,color:item.active?"#60a5fa":"var(--text-secondary)"}}>{item.label}</span>
+              <i className={`ti ${item.icon}`} style={{fontSize:13,color:activeView===item.key?"#60a5fa":item.danger&&item.badge?"#f87171":"var(--text-muted)"}}/>
+              <span style={{fontSize:11,color:activeView===item.key?"#60a5fa":"var(--text-secondary)"}}>{item.label}</span>
             </div>
             {item.badge && <span style={{fontSize:9,padding:"1px 4px",borderRadius:3,background:item.danger?"rgba(239,68,68,0.2)":"rgba(59,130,246,0.2)",color:item.danger?"#f87171":"#60a5fa",fontFamily:"var(--font-mono)",fontWeight:600}}>{item.badge}</span>}
           </div>
@@ -637,6 +645,7 @@ export default function SafeShopDashboard() {
   const [timeline,setTimeline] = useState(INIT_TL);
   const [forecast,setForecast] = useState(INIT_FORECAST);
   const [metrics] = useState(INIT_METRICS);
+  const [activeView, setActiveView] = useState('Dashboard');
   const [health,setHealth] = useState({
     status:"ok", version:"v5.0-rag",
     layers:{L1_Ensemble:true,L1_GNN:true,L2_Agentic_AI:true,L3_Redis:true,L4_TFT_Forecast:true,L5_Shadow_AB:true,L6_RAG_ChromaDB:true},
@@ -668,21 +677,45 @@ export default function SafeShopDashboard() {
     <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg-base)"}}>
       <TopBar apiReachable={apiReachable} onRefresh={fetchAll}/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-        <Sidebar orders={orders}/>
+        <Sidebar orders={orders} activeView={activeView} onSelect={setActiveView} />
         <div style={{flex:1,overflowY:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
-          <TopMetrics orders={orders}/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-            <FraudTimeline data={timeline}/>
-            <ModelPerformance data={metrics}/>
-            <DemandForecast data={forecast}/>
-          </div>
-          <LiveOrderFeed orders={orders}/>
-          <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",gap:12}}>
-            <LayerStatus health={health} layerPerf={LAYER_PERF}/>
-            <ShadowABPanel orders={orders}/>
-            <ActiveAlerts orders={orders}/>
-          </div>
-          <RAGPanel health={health}/>
+          {/* Conditional rendering based on navigation */}
+          {activeView === 'Dashboard' && (
+            <>
+              <TopMetrics orders={orders}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+                <FraudTimeline data={timeline}/>
+                <ModelPerformance data={metrics}/>
+                <DemandForecast data={forecast}/>
+              </div>
+              <LiveOrderFeed orders={orders}/>
+              <div style={{display:"grid",gridTemplateColumns:"1.4fr 1.0fr 1.0fr",gap:12}}>
+                <LayerStatus health={health} layerPerf={LAYER_PERF}/>
+                <ShadowABPanel orders={orders}/>
+                <ActiveAlerts orders={orders}/>
+              </div>
+              <RAGPanel health={health}/>
+            </>
+          )}
+          {activeView === 'Live Feed' && <LiveOrderFeed orders={orders}/>}
+          {activeView === 'Threats' && (
+            <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",gap:12}}>
+              <LayerStatus health={health} layerPerf={LAYER_PERF}/>
+              <ShadowABPanel orders={orders}/>
+              <ActiveAlerts orders={orders}/>
+            </div>
+          )}
+          {activeView === 'AI Agents' && <RAGPanel health={health}/>}
+          {activeView === 'Model Metrics' && <ModelPerformance data={metrics}/>}
+          {activeView === 'A/B Testing' && <ShadowABPanel orders={orders}/>}
+          {activeView === 'RAG KB' && <RAGPanel health={health}/>}
+          {activeView === 'Data Lake' && <p>Data Lake view placeholder</p>}
+          {activeView === 'Reports' && <p>Reports view placeholder</p>}
+          {activeView === 'Dashboard' && (
+            <p style={{fontSize:9,color:"var(--text-muted)",textAlign:"center",padding:"6px 0 2px"}}>
+              SafeShop SOC v5.0 · Kafka + Spark + GNN + LangGraph + ChromaDB + TFT · Live stream every 1.5s
+            </p>
+          )}
           <p style={{fontSize:9,color:"var(--text-muted)",textAlign:"center",padding:"6px 0 2px"}}>SafeShop SOC v5.0 &middot; Kafka + Spark + GNN + LangGraph + ChromaDB + TFT &middot; Live stream every 1.5s</p>
         </div>
       </div>
