@@ -1,10 +1,9 @@
-
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import SafeShopDashboard from './SafeShopDashboard'
+import App from './App'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <SafeShopDashboard />
+    <App />
   </StrictMode>
 )
