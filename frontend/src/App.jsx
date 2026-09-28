@@ -1,9 +1,166 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import SafeShopDashboard from "./SafeShopDashboard";
 import SafeShopLogo from "./Logo";
 
+const BOOT_LOG = [
+  { text: "Windows PowerShell", color: "#ffffff", bold: true },
+  { text: "Copyright (C) SafeShop SOC Platform. All rights reserved.", color: "#a1a1aa" },
+  { text: "", color: "" },
+  { text: "PS C:\\SafeShop\\admin> Initializing SOC console...", color: "#4ade80" },
+  { text: "[OK] Connected to API: http://localhost:8000", color: "#4ade80" },
+  { text: "[OK] Redis Feature Store: ONLINE", color: "#4ade80" },
+  { text: "[OK] Kafka Broker: transactions.live (lag: 12ms)", color: "#4ade80" },
+  { text: "[OK] GNN Model: L1_Ensemble v5.0 loaded", color: "#4ade80" },
+  { text: "[OK] LangGraph Agents: 4/4 ACTIVE", color: "#4ade80" },
+  { text: "[WARN] Ghost Firewall L9: 3 active rate-limits in effect", color: "#fbbf24" },
+  { text: "", color: "" },
+  { text: "Type 'help' for available commands.", color: "#60a5fa" },
+  { text: "", color: "" },
+];
+
+const COMMANDS = {
+  help: () => [
+    { text: "Available commands:", color: "#60a5fa", bold: true },
+    { text: "  status          - Show system health summary", color: "#e4e4e7" },
+    { text: "  threats         - List active threat alerts", color: "#e4e4e7" },
+    { text: "  agents          - Show AI agent fleet status", color: "#e4e4e7" },
+    { text: "  block <id>      - Block an order ID", color: "#e4e4e7" },
+    { text: "  clear           - Clear terminal", color: "#e4e4e7" },
+    { text: "  restart         - Restart SOC engine", color: "#e4e4e7" },
+    { text: "  exit            - Close console", color: "#e4e4e7" },
+  ],
+  status: () => [
+    { text: "── SYSTEM STATUS ─────────────────────────────", color: "#71717a" },
+    { text: "  API Server       : ONLINE  (latency: 14ms)", color: "#4ade80" },
+    { text: "  Kafka Broker     : ONLINE  (lag: 12ms)", color: "#4ade80" },
+    { text: "  Redis Store      : ONLINE  (hit-rate: 97.2%)", color: "#4ade80" },
+    { text: "  ChromaDB         : ONLINE  (47 cases indexed)", color: "#4ade80" },
+    { text: "  Ghost Firewall   : ACTIVE  (3 rules enforced)", color: "#fbbf24" },
+    { text: "  GNN Ensemble     : LOADED  (AUC: 0.991)", color: "#4ade80" },
+    { text: "  TFT Forecast     : READY   (horizon: 24h)", color: "#4ade80" },
+    { text: "──────────────────────────────────────────────", color: "#71717a" },
+  ],
+  threats: () => [
+    { text: "── ACTIVE THREATS ────────────────────────────", color: "#71717a" },
+    { text: "  [CRITICAL] ORD-9847 - BIN stuffing detected (score: 0.97)", color: "#f87171" },
+    { text: "  [CRITICAL] ORD-9012 - Card velocity breach x6 (score: 0.93)", color: "#f87171" },
+    { text: "  [HIGH]     ORD-8391 - Device fingerprint anomaly (score: 0.81)", color: "#fbbf24" },
+    { text: "  [HIGH]     ORD-7204 - Geo-IP mismatch IN→RU (score: 0.76)", color: "#fbbf24" },
+    { text: "──────────────────────────────────────────────", color: "#71717a" },
+    { text: `  Total: 2 CRITICAL, 2 HIGH — last updated ${new Date().toLocaleTimeString()}`, color: "#a1a1aa" },
+  ],
+  agents: () => [
+    { text: "── AGENT FLEET STATUS ────────────────────────", color: "#71717a" },
+    { text: "  TriageBot-Alpha     : ACTIVE  (34 cases/min)", color: "#4ade80" },
+    { text: "  GraphSentinel-04   : ACTIVE  (analyzing subgraphs)", color: "#4ade80" },
+    { text: "  WalletSentry-v2    : ACTIVE  (monitoring velocity)", color: "#4ade80" },
+    { text: "  GhostFirewall-L9   : ACTIVE  (enforcing 3 rules)", color: "#c084fc" },
+    { text: "──────────────────────────────────────────────", color: "#71717a" },
+  ],
+  restart: () => [
+    { text: "[INFO] Sending SIGTERM to SOC engine processes...", color: "#60a5fa" },
+    { text: "[INFO] Draining Kafka consumer group...", color: "#60a5fa" },
+    { text: "[INFO] Flushing Redis write-behind buffer...", color: "#60a5fa" },
+    { text: "[OK]   SOC engine restarted successfully in 1.2s", color: "#4ade80" },
+  ],
+};
+
+function TerminalModal({ onClose }) {
+  const [lines, setLines] = useState(BOOT_LOG);
+  const [input, setInput] = useState("");
+  const [history, setHistory] = useState([]);
+  const [histIdx, setHistIdx] = useState(-1);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [lines]);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleCmd = (raw) => {
+    const cmd = raw.trim().toLowerCase();
+    const parts = cmd.split(" ");
+    const base = parts[0];
+    const arg = parts.slice(1).join(" ");
+
+    const echo = { text: `PS C:\\SafeShop\\admin> ${raw}`, color: "#e4e4e7" };
+
+    if (cmd === "clear") { setLines([echo, { text: "", color: "" }]); setInput(""); return; }
+    if (cmd === "exit") { onClose(); return; }
+
+    let response;
+    if (base === "block" && arg) {
+      response = [
+        { text: `[INFO] Submitting block order for ${arg.toUpperCase()}...`, color: "#60a5fa" },
+        { text: `[OK]   ${arg.toUpperCase()} flagged and queued for Ghost Firewall L9 enforcement.`, color: "#4ade80" },
+        { text: `[LOG]  Audit trail written to /var/log/safeshop/blocks.json`, color: "#71717a" },
+      ];
+    } else if (COMMANDS[base]) {
+      response = COMMANDS[base]();
+    } else {
+      response = [{ text: `'${cmd}' is not recognized. Type 'help' for commands.`, color: "#f87171" }];
+    }
+
+    setLines((prev) => [...prev, echo, ...response, { text: "", color: "" }]);
+    setHistory((prev) => [raw, ...prev]);
+    setHistIdx(-1);
+    setInput("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") { if (input.trim()) handleCmd(input); }
+    if (e.key === "ArrowUp") { const i = Math.min(histIdx + 1, history.length - 1); setHistIdx(i); setInput(history[i] ?? ""); }
+    if (e.key === "ArrowDown") { const i = Math.max(histIdx - 1, -1); setHistIdx(i); setInput(i === -1 ? "" : history[i]); }
+    if (e.key === "Escape") onClose();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: "min(820px, 95vw)", height: "min(540px, 85vh)", background: "#0c0c0c", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.05)", overflow: "hidden" }}>
+        {/* Title bar */}
+        <div style={{ background: "#1a1a1a", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#ff5f56", display: "block" }} />
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#ffbd2e", display: "block" }} />
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#27c93f", display: "block" }} />
+            </div>
+            <span style={{ fontSize: 12, color: "#a1a1aa", fontFamily: "var(--font-mono)", marginLeft: 8 }}>Windows PowerShell — SafeShop SOC Admin Console</span>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#71717a", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Terminal output */}
+        <div onClick={() => inputRef.current?.focus()} style={{ flex: 1, overflowY: "auto", padding: "12px 16px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.65, cursor: "text" }}>
+          {lines.map((l, i) => (
+            <div key={i} style={{ color: l.color || "#e4e4e7", fontWeight: l.bold ? 700 : 400, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{l.text}</div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input row */}
+        <div style={{ display: "flex", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "8px 16px", gap: 8, background: "#0f0f0f", flexShrink: 0 }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#4ade80", whiteSpace: "nowrap" }}>PS C:\SafeShop\admin&gt;</span>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#e4e4e7", fontFamily: "var(--font-mono)", fontSize: 12, caretColor: "#4ade80" }}
+            placeholder="type a command..."
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <button onClick={() => { if (input.trim()) handleCmd(input); }} style={{ background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)", color: "#4ade80", fontFamily: "var(--font-mono)", fontSize: 11, padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>Run ↵</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState("home"); // "home" or "monitor"
+  const [consoleOpen, setConsoleOpen] = useState(false);
 
   if (view === "monitor") {
     return (
@@ -155,7 +312,7 @@ export default function App() {
           </div>
 
           <button
-            onClick={() => setView("monitor")}
+                      onClick={() => setConsoleOpen(true)}
             style={{
               background: "#ffffff",
               color: "#09090b",
@@ -180,8 +337,8 @@ export default function App() {
               e.currentTarget.style.boxShadow = "0 2px 10px rgba(255, 255, 255, 0.1)";
             }}
           >
+            <i className="ti ti-terminal" style={{ fontSize: 13 }} />
             <span>Open Console</span>
-            <i className="ti ti-arrow-right" style={{ fontSize: 12 }}></i>
           </button>
         </div>
       </header>
@@ -466,6 +623,7 @@ export default function App() {
           <span>CONFIDENTIAL · SEC-ENG ML RED TEAM USE ONLY</span>
         </div>
       </footer>
+      {consoleOpen && <TerminalModal onClose={() => setConsoleOpen(false)} />}
     </div>
   );
 }
