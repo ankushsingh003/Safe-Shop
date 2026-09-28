@@ -699,12 +699,12 @@ export default function SafeShopDashboard() {
           )}
           {activeView === 'Live Feed' && <LiveFeedView orders={orders}/>}
           {activeView === 'Threats' && <ThreatsView orders={orders} layerPerf={LAYER_PERF} health={health}/>}
-          {activeView === 'AI Agents' && <AgentsView />}
+          {activeView === 'AI Agents' && <AgentsView orders={orders} />}
           {activeView === 'Model Metrics' && <ModelMetricsView metrics={metrics}/>}
           {activeView === 'A/B Testing' && <ABTestingView orders={orders}/>}
           {activeView === 'RAG KB' && <RAGKBView health={health}/>}
           {activeView === 'Data Lake' && <DataLakeView />}
-          {activeView === 'Reports' && <ReportsView />}
+          {activeView === 'Reports' && <ReportsView orders={orders} />}
           {activeView === 'Dashboard' && (
             <p style={{fontSize:9,color:"var(--text-muted)",textAlign:"center",padding:"6px 0 2px"}}>
               SafeShop SOC v5.0 · Kafka + Spark + GNN + LangGraph + ChromaDB + TFT · Live stream every 1.5s
