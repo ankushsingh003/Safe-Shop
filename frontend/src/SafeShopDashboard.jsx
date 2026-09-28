@@ -12,7 +12,7 @@ import SettingsModal from "./views/SettingsModal";
 import {
   LineChart, Line, AreaChart, Area,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine
+  Tooltip, ResponsiveContainer, ReferenceLine, Brush
 } from "recharts";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -131,11 +131,74 @@ const ChartTooltip = ({active,payload,label}) => {
   );
 };
 
-function Card({children,style,glow}) {
-  return <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"hidden",boxShadow:glow||"none",...style}}>{children}</div>;
+function Card({children, style, glow}) {
+  return (
+    <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"hidden",boxShadow:glow||"none",...style}}>
+      {children}
+    </div>
+  );
 }
 
-function CardHeader({title,subtitle,right,icon,accent}) {
+function ExpandCard({title, subtitle, icon, accent, right, children, style, glow}) {
+  const [expanded, setExpanded] = useState(false);
+  const content = (
+    <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"hidden",boxShadow:glow||"none",...(!expanded ? style : {display:"flex",flexDirection:"column",width:"100%",height:"100%",borderRadius:0,border:"none"})}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid var(--border)",background:"rgba(255,255,255,0.015)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {icon && <div style={{width:26,height:26,borderRadius:6,background:accent?`${accent}22`:"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",border:accent?`1px solid ${accent}40`:"1px solid var(--border)"}}>
+            <i className={`ti ${icon}`} style={{fontSize:13,color:accent||"var(--text-secondary)"}}/>
+          </div>}
+          <div>
+            <p style={{fontSize:12,fontWeight:600,color:"var(--text-primary)",letterSpacing:"0.01em"}}>{title}</p>
+            {subtitle && <p style={{fontSize:10,color:"var(--text-muted)",marginTop:1}}>{subtitle}</p>}
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          {right}
+          <button
+            onClick={() => setExpanded(e => !e)}
+            title={expanded ? "Collapse" : "Expand"}
+            style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:4,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",color:"var(--text-muted)",cursor:"pointer",flexShrink:0,transition:"all 0.15s ease"}}
+            onMouseOver={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.color="#ffffff";}}
+            onMouseOut={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="var(--text-muted)";}}>
+            <i className={`ti ${expanded ? "ti-minimize" : "ti-maximize"}`} style={{fontSize:11}}/>
+          </button>
+        </div>
+      </div>
+      <div style={{flex:1,overflow:"auto"}}>{children}</div>
+    </div>
+  );
+
+  if (!expanded) return content;
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:8888,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}
+      onClick={e => e.target === e.currentTarget && setExpanded(false)}>
+      <div style={{
+        width:"min(1000px,92vw)",
+        maxHeight:"78vh",
+        display:"flex",
+        flexDirection:"column",
+        borderRadius:12,
+        overflow:"hidden",
+        border:"1px solid rgba(255,255,255,0.14)",
+        boxShadow:"0 8px 12px rgba(0,0,0,0.3), 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04) inset",
+        background:"var(--bg-card)",
+        animation:"popup-in 0.18s cubic-bezier(0.16,1,0.3,1)"
+      }}>
+        {/* Window chrome bar */}
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",background:"rgba(255,255,255,0.025)",borderBottom:"1px solid rgba(255,255,255,0.07)",flexShrink:0}}>
+          <div style={{width:11,height:11,borderRadius:"50%",background:"#ef4444",cursor:"pointer",boxShadow:"0 0 0 1px rgba(0,0,0,0.3)"}} onClick={()=>setExpanded(false)}/>
+          <div style={{width:11,height:11,borderRadius:"50%",background:"#f59e0b",boxShadow:"0 0 0 1px rgba(0,0,0,0.3)"}}/>
+          <div style={{width:11,height:11,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 0 1px rgba(0,0,0,0.3)"}}/>
+          <span style={{marginLeft:8,fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",letterSpacing:"0.04em"}}>expanded view</span>
+        </div>
+        <div style={{overflowY:"auto",flex:1}}>{content}</div>
+      </div>
+    </div>
+  );
+}
+
+function CardHeader({title, subtitle, right, icon, accent}) {
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid var(--border)",background:"rgba(255,255,255,0.015)"}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -198,15 +261,14 @@ function LiveOrderFeed({orders}) {
   const displayed = filtered.slice(0,20);
 
   return (
-    <Card style={{display:"flex",flexDirection:"column"}}>
-      <CardHeader title="Live Transaction Stream" subtitle={`${orders.length} orders · streaming`} icon="ti-activity" accent="#3b82f6"
-        right={<div style={{display:"flex",gap:5,alignItems:"center"}}>
-          <LiveDot/><span style={{fontSize:10,color:"var(--text-secondary)",marginRight:8}}>LIVE</span>
-          {["ALL","CRITICAL","HIGH","MEDIUM","LOW"].map(f=>(
-            <button key={f} onClick={()=>setFilter(f)} style={{fontSize:9,padding:"2px 7px",background:filter===f?(f==="CRITICAL"?"rgba(239,68,68,0.2)":f==="HIGH"?"rgba(245,158,11,0.2)":"rgba(59,130,246,0.2)"):"transparent",border:`1px solid ${filter===f?"rgba(255,255,255,0.18)":"var(--border)"}`,color:filter===f?"var(--text-primary)":"var(--text-muted)",letterSpacing:"0.04em"}}>{f}</button>
-          ))}
-        </div>}
-      />
+    <ExpandCard title="Live Transaction Stream" subtitle={`${orders.length} orders · streaming`} icon="ti-activity" accent="#3b82f6"
+      style={{display:"flex",flexDirection:"column"}}
+      right={<div style={{display:"flex",gap:5,alignItems:"center"}}>
+        <LiveDot/><span style={{fontSize:10,color:"var(--text-secondary)",marginRight:8}}>LIVE</span>
+        {["ALL","CRITICAL","HIGH","MEDIUM","LOW"].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)} style={{fontSize:9,padding:"2px 7px",background:filter===f?(f==="CRITICAL"?"rgba(239,68,68,0.2)":f==="HIGH"?"rgba(245,158,11,0.2)":"rgba(59,130,246,0.2)"):"transparent",border:`1px solid ${filter===f?"rgba(255,255,255,0.18)":"var(--border)"}`,color:filter===f?"var(--text-primary)":"var(--text-muted)",letterSpacing:"0.04em"}}>{f}</button>
+        ))}
+      </div>}>
       <div style={{overflowY:"auto",maxHeight:340}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
           <thead style={{position:"sticky",top:0,background:"var(--bg-card)",zIndex:1}}>
@@ -268,15 +330,14 @@ function LiveOrderFeed({orders}) {
           </div>
         </div>
       )}
-    </Card>
+    </ExpandCard>
   );
 }
 
 /* ── THREAT TIMELINE CHART ──────────────────────────────────────────────────── */
 function FraudTimeline({data}) {
   return (
-    <Card>
-      <CardHeader title="Threat Volume — 60min" subtitle="orders / fraud / blocked per min" icon="ti-chart-area-line" accent="#ef4444" right={<span style={{fontSize:10,color:"var(--text-muted)"}}>Rolling window</span>}/>
+    <ExpandCard title="Threat Volume — 60min" subtitle="orders / fraud / blocked per min" icon="ti-chart-area-line" accent="#ef4444" right={<span style={{fontSize:10,color:"var(--text-muted)"}}>Rolling window</span>}>
       <div style={{padding:"12px 6px 6px"}}>
         <ResponsiveContainer width="100%" height={150}>
           <AreaChart data={data} margin={{top:4,right:6,bottom:0,left:-16}}>
@@ -292,6 +353,10 @@ function FraudTimeline({data}) {
             <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={1.5} fill="url(#gT)" name="Total" dot={false}/>
             <Area type="monotone" dataKey="fraud" stroke="#ef4444" strokeWidth={1.5} fill="url(#gF)" name="Fraud" dot={false}/>
             <Area type="monotone" dataKey="blocked" stroke="#8b5cf6" strokeWidth={1.5} fill="url(#gB)" name="Blocked" dot={false}/>
+            <Brush dataKey="time" height={18} stroke="rgba(255,255,255,0.08)" fill="rgba(15,20,35,0.85)" travellerWidth={7}
+              style={{fontSize:9}}
+              startIndex={0}
+            />
           </AreaChart>
         </ResponsiveContainer>
         <div style={{display:"flex",gap:14,justifyContent:"center",marginTop:6}}>
@@ -300,7 +365,7 @@ function FraudTimeline({data}) {
           ))}
         </div>
       </div>
-    </Card>
+    </ExpandCard>
   );
 }
 
@@ -342,10 +407,9 @@ function ModelPerformance({data}) {
 /* ── DEMAND FORECAST CHART ──────────────────────────────────────────────────── */
 function DemandForecast({data}) {
   return (
-    <Card>
-      <CardHeader title="Demand Forecast — TFT L4" subtitle="48h window · 90% CI" icon="ti-trending-up" accent="#10b981"
-        right={<span style={{fontSize:10,color:"#4ade80"}}><i className="ti ti-cpu" style={{marginRight:3,fontSize:10}}/>Active</span>}
-      />
+    <ExpandCard title="Demand Forecast — TFT L4" subtitle="48h window · 90% CI" icon="ti-trending-up" accent="#10b981"
+      right={<span style={{fontSize:10,color:"#4ade80"}}><i className="ti ti-cpu" style={{marginRight:3,fontSize:10}}/>Active</span>}
+    >
       <div style={{padding:"12px 6px 6px"}}>
         <ResponsiveContainer width="100%" height={150}>
           <AreaChart data={data} margin={{top:4,right:6,bottom:0,left:-16}}>
@@ -364,7 +428,7 @@ function DemandForecast({data}) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </Card>
+    </ExpandCard>
   );
 }
 
@@ -546,7 +610,14 @@ function RAGPanel({health}) {
 }
 
 /* ── TOP BAR ────────────────────────────────────────────────────────────────── */
-function TopBar({apiReachable,onRefresh}) {
+const TOP_NAV_MAP = {
+  "Overview":     "Dashboard",
+  "Transactions": "Live Feed",
+  "Models":       "Model Metrics",
+  "Alerts":       "Threats",
+  "Settings":     "Settings",
+};
+function TopBar({apiReachable, onRefresh, activeView, onSelect}) {
   const [now,setNow] = useState(new Date());
   useEffect(()=>{const t=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(t);},[]);
   return (
@@ -559,9 +630,23 @@ function TopBar({apiReachable,onRefresh}) {
         </div>
       </div>
       <div style={{width:1,height:26,background:"var(--border)",margin:"0 4px"}}/>
-      {["Overview","Transactions","Models","Alerts","Settings"].map((t,i)=>(
-        <button key={t} style={{fontSize:11,padding:"4px 10px",background:i===0?"rgba(59,130,246,0.15)":"transparent",border:i===0?"1px solid rgba(59,130,246,0.3)":"1px solid transparent",color:i===0?"#60a5fa":"var(--text-muted)"}}>{t}</button>
-      ))}
+      {Object.entries(TOP_NAV_MAP).map(([label, viewKey]) => {
+        const isActive = activeView === viewKey;
+        return (
+          <button
+            key={label}
+            onClick={() => onSelect(viewKey)}
+            style={{
+              fontSize:11, padding:"4px 10px", cursor:"pointer",
+              background: isActive ? "rgba(59,130,246,0.15)" : "transparent",
+              border: isActive ? "1px solid rgba(59,130,246,0.3)" : "1px solid transparent",
+              color: isActive ? "#60a5fa" : "var(--text-muted)",
+              borderRadius: 4,
+              transition: "all 0.15s ease",
+            }}
+          >{label}</button>
+        );
+      })}
       <div style={{flex:1}}/>
       <div style={{display:"flex",alignItems:"center",gap:12,fontSize:11}}>
         <div style={{display:"flex",alignItems:"center",gap:5}}>
@@ -675,7 +760,7 @@ export default function SafeShopDashboard() {
 
   return (
     <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg-base)"}}>
-      <TopBar apiReachable={apiReachable} onRefresh={fetchAll}/>
+      <TopBar apiReachable={apiReachable} onRefresh={fetchAll} activeView={activeView} onSelect={setActiveView}/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         <Sidebar orders={orders} activeView={activeView} onSelect={setActiveView} />
         <div style={{flex:1,overflowY:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
