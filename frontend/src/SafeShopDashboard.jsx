@@ -697,20 +697,14 @@ export default function SafeShopDashboard() {
               <RAGPanel health={health}/>
             </>
           )}
-          {activeView === 'Live Feed' && <LiveOrderFeed orders={orders}/>}
-          {activeView === 'Threats' && (
-            <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",gap:12}}>
-              <LayerStatus health={health} layerPerf={LAYER_PERF}/>
-              <ShadowABPanel orders={orders}/>
-              <ActiveAlerts orders={orders}/>
-            </div>
-          )}
-          {activeView === 'AI Agents' && <RAGPanel health={health}/>}
-          {activeView === 'Model Metrics' && <ModelPerformance data={metrics}/>}
-          {activeView === 'A/B Testing' && <ShadowABPanel orders={orders}/>}
-          {activeView === 'RAG KB' && <RAGPanel health={health}/>}
-          {activeView === 'Data Lake' && <p>Data Lake view placeholder</p>}
-          {activeView === 'Reports' && <p>Reports view placeholder</p>}
+          {activeView === 'Live Feed' && <LiveFeedView orders={orders}/>}
+          {activeView === 'Threats' && <ThreatsView orders={orders} layerPerf={LAYER_PERF} health={health}/>}
+          {activeView === 'AI Agents' && <AgentsView />}
+          {activeView === 'Model Metrics' && <ModelMetricsView metrics={metrics}/>}
+          {activeView === 'A/B Testing' && <ABTestingView orders={orders}/>}
+          {activeView === 'RAG KB' && <RAGKBView health={health}/>}
+          {activeView === 'Data Lake' && <DataLakeView />}
+          {activeView === 'Reports' && <ReportsView />}
           {activeView === 'Dashboard' && (
             <p style={{fontSize:9,color:"var(--text-muted)",textAlign:"center",padding:"6px 0 2px"}}>
               SafeShop SOC v5.0 · Kafka + Spark + GNN + LangGraph + ChromaDB + TFT · Live stream every 1.5s
